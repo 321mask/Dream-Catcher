@@ -90,11 +90,32 @@ final class AppCoordinator {
         }
     }
 
-    private func inferExpectedSleepStart(storedNights: [SleepNight], fallbackNow: Date) -> Date {
+    /*private func inferExpectedSleepStart(storedNights: [SleepNight], fallbackNow: Date) -> Date {
         let recent = storedNights.prefix(14)
         guard !recent.isEmpty else { return fallbackNow }
         let minutes = recent.map { DateUtils.minutesSinceMidnight($0.sleepStart) }.sorted()
         let median = minutes[minutes.count / 2]
         return DateUtils.todayAt(minutesSinceMidnight: median, now: fallbackNow)
+    }*/
+    
+    private func inferExpectedSleepStart(storedNights: [SleepNight], fallbackNow: Date) -> Date {
+        let recent = storedNights.prefix(14)
+        guard !recent.isEmpty else { return fallbackNow }
+
+        let minutes = recent
+            .map { DateUtils.minutesSinceMidnight($0.sleepStart) }
+            .sorted()
+
+        let median = minutes[minutes.count / 2]
+
+        // Build "today at that time"
+        var candidate = DateUtils.todayAt(minutesSinceMidnight: median, now: fallbackNow)
+
+        // If that time already passed today, move it to tomorrow
+        if candidate <= fallbackNow {
+            candidate = Calendar.current.date(byAdding: .day, value: 1, to: candidate)!
+        }
+
+        return candidate
     }
 }
