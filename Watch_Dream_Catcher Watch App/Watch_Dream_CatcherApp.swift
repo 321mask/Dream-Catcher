@@ -9,9 +9,18 @@ import SwiftUI
 
 @main
 struct Watch_Dream_Catcher_Watch_AppApp: App {
+    @State private var sleepSession = WatchSleepSession()
+    @State private var sessionManager = WatchSessionManager()
+
     var body: some Scene {
         WindowGroup {
-            WatchDashboardView()
+            WatchDashboardView(
+                sleepSession: sleepSession,
+                sessionManager: sessionManager
+            )
+            .onAppear {
+                sessionManager.sleepSession = sleepSession
+            }
         }
     }
 }

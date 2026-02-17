@@ -1,0 +1,10 @@
+// Local.xcconfig — per-developer overrides (NOT tracked by git)
+//
+// Copy this file to Local.xcconfig and fill in your values.
+// Xcode will pick these up automatically for all targets.
+
+// Your Apple Developer Team ID (find in Xcode → Signing & Capabilities, or https://developer.apple.com/account)
+DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE
+
+// Bundle identifier prefix — the iPhone app gets this as-is, Watch app gets .watchkitapp appended
+BUNDLE_ID_PREFIX = com.yourname.DreamCatcher

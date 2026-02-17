@@ -10,6 +10,12 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         Form {
+            Section("Testing") {
+                NavigationLink("Cue Testing") {
+                    CueTestingView()
+                }
+            }
+
             Section("Notes") {
                 Text("This prototype infers expected sleep start from recent nights (median). For production, add a user setting for usual bedtime / alarm time, and optionally detect bedtime from last phone activity.")
                     .foregroundStyle(.secondary)

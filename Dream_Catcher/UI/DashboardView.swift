@@ -12,18 +12,24 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SleepNight.sleepStart, order: .reverse) private var nights: [SleepNight]
     @Query private var modelStates: [RemModelState]
-    
+
+    @Bindable var coordinator: AppCoordinator
+
+    @State private var showCalibration = false
+    @State private var showTraining = false
+    @State private var sessionError: String?
+
     @MainActor
     private var lastUpdatedString: String {
         guard let d = coordinator.lastUpdatedAt else { return "—" }
         return DateUtils.pretty(d)
     }
 
-    var coordinator: AppCoordinator
-
     var body: some View {
         NavigationStack {
             List {
+                sleepSessionSection
+
                 Section("Status") {
                     InfoRow(title: "Status", value: coordinator.statusText)
                     InfoRow(
@@ -82,6 +88,133 @@ struct DashboardView: View {
                     SettingsView()
                 }
             }
+            .fullScreenCover(isPresented: $showCalibration, onDismiss: {
+                // If still in calibrating phase, user skipped/cancelled
+                if coordinator.sleepPhase == .calibrating {
+                    coordinator.sleepPhase = .idle
+                }
+            }) {
+                CalibrationView(
+                    wizard: VolumeCalibrationWizard(player: coordinator.cuePlayer),
+                    calibration: $coordinator.calibration,
+                    onComplete: {
+                        showCalibration = false
+                        startTrainingAfterCalibration()
+                    }
+                )
+            }
+            .fullScreenCover(isPresented: $showTraining, onDismiss: {
+                // If still in training phase, user cancelled early
+                if coordinator.sleepPhase == .training {
+                    coordinator.endSleepSession()
+                }
+            }) {
+                if let session = coordinator.trainingSession {
+                    PreSleepTrainingView(session: session) {
+                        coordinator.trainingCompleted()
+                    }
+                }
+            }
+            .onChange(of: coordinator.sleepPhase) { _, newPhase in
+                switch newPhase {
+                case .calibrating:
+                    showCalibration = true
+                case .training:
+                    showTraining = true
+                case .monitoring:
+                    showTraining = false
+                    showCalibration = false
+                case .idle:
+                    showTraining = false
+                    showCalibration = false
+                }
+            }
+        }
+    }
+
+    // MARK: - Sleep Session Section
+
+    private var sleepSessionSection: some View {
+        Section {
+            switch coordinator.sleepPhase {
+            case .idle:
+                Button {
+                    do {
+                        try coordinator.beginSleepFlow()
+                    } catch {
+                        sessionError = error.localizedDescription
+                    }
+                } label: {
+                    Label("Start Sleep Session", systemImage: "moon.fill")
+                }
+
+                if let calibration = coordinator.calibration {
+                    HStack {
+                        Text("Calibration")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if calibration.needsRecalibration {
+                            Text("Stale")
+                                .foregroundStyle(.orange)
+                        } else {
+                            Text("OK")
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    .font(.footnote)
+                } else {
+                    Text("Not calibrated yet")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let err = sessionError {
+                    Text(err)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+
+            case .calibrating:
+                Label("Calibrating...", systemImage: "speaker.wave.2")
+                    .foregroundStyle(.secondary)
+
+            case .training:
+                Label("Training in progress...", systemImage: "brain.head.profile")
+                    .foregroundStyle(.indigo)
+
+            case .monitoring:
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Monitoring sleep", systemImage: "bed.double.fill")
+                        .foregroundStyle(.green)
+
+                    if let scheduler = coordinator.remScheduler {
+                        HStack {
+                            Text("Cues delivered")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(scheduler.cuesDeliveredTonight)")
+                        }
+                        .font(.footnote)
+                    }
+                }
+
+                Button(role: .destructive) {
+                    coordinator.endSleepSession()
+                } label: {
+                    Label("End Sleep Session", systemImage: "sun.max.fill")
+                }
+            }
+        } header: {
+            Text("Sleep Session")
+        }
+    }
+
+    private func startTrainingAfterCalibration() {
+        do {
+            try coordinator.calibrationCompleted()
+        } catch {
+            sessionError = error.localizedDescription
+            coordinator.sleepPhase = .idle
         }
     }
 

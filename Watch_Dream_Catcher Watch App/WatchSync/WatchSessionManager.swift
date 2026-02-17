@@ -1,9 +1,15 @@
 //
 //  WatchSessionManager.swift
-//  Dream_Catcher
+//  Watch_Dream_Catcher Watch App
 //
 //  Created by Arseny Prostakov on 15/01/2026.
 //
+//  Handles all WCSession communication from iPhone:
+//  - REM window scheduling (windows, cuesPerWindow, spacingSeconds)
+//  - Sleep Focus commands (sleepFocusOn / sleepFocusOff)
+//  - Sleep session commands (startSleepSession / stopSleepSession)
+//  - Haptic test commands (testHaptic with pattern)
+//  - TLR haptic cue commands (tlr_playHaptic)
 
 import Foundation
 import WatchConnectivity
@@ -12,7 +18,11 @@ import Observation
 @Observable
 final class WatchSessionManager: NSObject, WCSessionDelegate {
     var lastReceivedWindows: [DateInterval] = []
-    var status: String = "Waiting…"
+    var status: String = "Waiting..."
+
+    /// Set externally by the Watch app entry point so we can
+    /// forward Sleep Focus and session commands to it.
+    weak var sleepSession: WatchSleepSession?
 
     override init() {
         super.init()
@@ -29,22 +39,99 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         s.activate()
     }
 
+    // MARK: - WCSessionDelegate
+
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        status = (activationState == .activated) ? "Connected" : "Not active"
+        DispatchQueue.main.async {
+            self.status = (activationState == .activated) ? "Connected" : "Not active"
+        }
     }
 
-    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
-        handle(payload: applicationContext)
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        DispatchQueue.main.async {
+            self.handle(payload: applicationContext)
+        }
     }
 
-    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        handle(payload: message)
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        DispatchQueue.main.async {
+            self.handle(payload: message)
+        }
     }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        DispatchQueue.main.async {
+            self.handle(payload: userInfo)
+        }
+    }
+
+    // MARK: - Payload Handling
 
     private func handle(payload: [String: Any]) {
-        guard
-            let raw = payload["windows"] as? [[Double]]
-        else {
+        // Check for command-based messages first
+        if let command = payload["command"] as? String {
+            handleCommand(command, payload: payload)
+            return
+        }
+
+        // Otherwise, treat as REM window payload
+        handleWindowPayload(payload)
+    }
+
+    private func handleCommand(_ command: String, payload: [String: Any]) {
+        switch command {
+
+        // Sleep Focus detection from iPhone
+        case "sleepFocusOn":
+            sleepSession?.isSleepFocusActive = true
+
+        case "sleepFocusOff":
+            sleepSession?.isSleepFocusActive = false
+
+        // Explicit session control from iPhone
+        case "startSleepSession":
+            sleepSession?.start()
+
+        case "stopSleepSession":
+            sleepSession?.stop()
+
+        // REM cue scheduling from iPhone
+        case "scheduleRemCues":
+            if let windowsData = payload["windows"] as? [[String: TimeInterval]] {
+                let windows = windowsData.compactMap { dict -> DateInterval? in
+                    guard let start = dict["start"], let end = dict["end"] else { return nil }
+                    return DateInterval(
+                        start: Date(timeIntervalSince1970: start),
+                        end: Date(timeIntervalSince1970: end)
+                    )
+                }
+                let cuesPerWindow = payload["cuesPerWindow"] as? Int ?? 10
+                let spacing = payload["spacing"] as? TimeInterval ?? 30.0
+
+                WatchCueScheduler.shared.replaceScheduledCues(
+                    for: windows,
+                    cuesPerWindow: cuesPerWindow,
+                    spacingSeconds: spacing
+                )
+            }
+
+        // Haptic test from iPhone's CueTestingView
+        case "testHaptic":
+            if let pattern = payload["pattern"] as? String {
+                WatchHapticTestHandler.play(pattern: pattern)
+            }
+
+        // TLR haptic cue from iPhone (during REM cue delivery)
+        case "tlr_playHaptic":
+            WatchHapticCueEngine().playCue()
+
+        default:
+            break
+        }
+    }
+
+    private func handleWindowPayload(_ payload: [String: Any]) {
+        guard let raw = payload["windows"] as? [[Double]] else {
             status = "Bad payload"
             return
         }
@@ -63,7 +150,6 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         lastReceivedWindows = windows
         status = "Received \(windows.count) windows"
 
-        // Schedule cues as Watch local notifications for reliable haptics.
         Task {
             do {
                 try await WatchCueScheduler.shared.requestAuthorizationIfNeeded()
@@ -72,9 +158,9 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
                     cuesPerWindow: cuesPerWindow,
                     spacingSeconds: spacingSeconds
                 )
-                status = "Cues scheduled"
+                await MainActor.run { self.status = "Cues scheduled" }
             } catch {
-                status = "Notif denied"
+                await MainActor.run { self.status = "Notif denied" }
             }
         }
     }

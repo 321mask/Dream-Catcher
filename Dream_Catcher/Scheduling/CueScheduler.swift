@@ -7,7 +7,6 @@
 
 import Foundation
 import UserNotifications
-import UIKit
 
 enum CueSchedulerError: Error {
     case notificationsDenied

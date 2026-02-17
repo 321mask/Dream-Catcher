@@ -6,5 +6,9 @@
 	<array>
 		<string>com.ya.mask2012@yandex.ru.Dream_Catcher.nightlyRefresh</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>
