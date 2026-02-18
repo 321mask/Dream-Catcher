@@ -7,7 +7,9 @@
 
 import Foundation
 import WatchConnectivity
+import Observation
 
+@Observable
 final class PhoneWatchSync: NSObject, WCSessionDelegate {
     static let shared = PhoneWatchSync()
 
@@ -25,6 +27,12 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     /// Set by AppCoordinator so Watch signals can reach the REMCueScheduler.
     weak var remCueScheduler: REMCueScheduler?
 
+    // MARK: - Reachability (published to SwiftUI)
+
+    /// True when interactive messaging to the Watch is available.
+    /// This generally requires the Watch app to be in the foreground.
+    private(set) var isReachable: Bool = false
+
     private override init() {
         super.init()
         activate()
@@ -37,7 +45,29 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         session.activate()
     }
 
-    // MARK: - Sending
+    // MARK: - Convenience
+
+    /// Send a command to the Watch (e.g., playHaptic, sleepFocusOn/Off).
+    func send(_ message: [String: Any]) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { err in
+                log("WC send error: \(err)")
+            }
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
+
+    /// Used by CueTestingView to trigger haptic tests.
+    func sendTestHaptic(pattern: String) {
+        send(["command": "testHaptic", "pattern": pattern])
+    }
+
+    // MARK: - Sending windows (unchanged)
 
     func sendRemWindowsToWatch(windows: [DateInterval], cuesPerWindow: Int, spacingSeconds: TimeInterval) {
         guard WCSession.isSupported() else { return }
@@ -67,24 +97,13 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         }
     }
 
-    /// Send a command to the Watch (e.g., playHaptic, sleepFocusOn/Off).
-    func send(_ message: [String: Any]) {
-        guard WCSession.isSupported() else { return }
-        let session = WCSession.default
-        guard session.activationState == .activated else { return }
-
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil) { err in
-                log("WC send error: \(err)")
-            }
-        } else {
-            session.transferUserInfo(message)
-        }
-    }
-
     // MARK: WCSessionDelegate
 
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        DispatchQueue.main.async { [weak self] in
+            self?.isReachable = session.isReachable
+        }
+    }
 
 #if os(iOS)
     func sessionDidBecomeInactive(_ session: WCSession) {}
@@ -92,6 +111,12 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         session.activate()
     }
 #endif
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async { [weak self] in
+            self?.isReachable = session.isReachable
+        }
+    }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         handleIncoming(applicationContext)
@@ -122,3 +147,4 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         }
     }
 }
+

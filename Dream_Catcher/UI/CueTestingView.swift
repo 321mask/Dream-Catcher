@@ -61,10 +61,12 @@ struct CueTestingView: View {
     @State private var lastPlayedHaptic: String?
     @State private var customVolume: Float = 0.10
     @State private var showCustomSlider = false
-    @State private var watchReachable = false
     @State private var repeatCount: Int = 1
     @State private var repeatInterval: Double = 2.0
     @State private var player = TestCuePlayer()
+
+    // Observe centralized WCSession reachability
+    @State private var sync = PhoneWatchSync.shared
 
     var body: some View {
         List {
@@ -78,7 +80,6 @@ struct CueTestingView: View {
         }
         .navigationTitle("Cue Testing")
         .onAppear {
-            watchReachable = WCSession.default.isReachable
             try? player.setup()
         }
         .onDisappear {
@@ -198,7 +199,7 @@ struct CueTestingView: View {
 
     private var hapticSection: some View {
         Section {
-            if !watchReachable {
+            if !sync.isReachable {
                 HStack(spacing: 8) {
                     Image(systemName: "applewatch.slash")
                         .foregroundColor(.orange)
@@ -237,8 +238,8 @@ struct CueTestingView: View {
                         }
                     }
                 }
-                .disabled(!watchReachable)
-                .opacity(watchReachable ? 1 : 0.4)
+                .disabled(!sync.isReachable)
+                .opacity(sync.isReachable ? 1 : 0.4)
             }
         } header: {
             Text("Haptic (Apple Watch)")
@@ -258,7 +259,7 @@ struct CueTestingView: View {
                           title: "Whisper + Triple",
                           subtitle: "Audio at 8% + ascending haptic. Subtle combo.")
             }
-            .disabled(!watchReachable)
+            .disabled(!sync.isReachable)
 
             Button {
                 playCombined(audioVolume: 0.15, hapticPattern: "triple_ascending")
@@ -267,7 +268,7 @@ struct CueTestingView: View {
                           title: "Soft + Triple",
                           subtitle: "Audio at 15% + ascending haptic. TLR target.")
             }
-            .disabled(!watchReachable)
+            .disabled(!sync.isReachable)
 
             Button {
                 playCombined(audioVolume: 0.25, hapticPattern: "single_strong")
@@ -276,7 +277,7 @@ struct CueTestingView: View {
                           title: "Medium + Single Strong",
                           subtitle: "Audio at 25% + one firm tap. Maximum salience.")
             }
-            .disabled(!watchReachable)
+            .disabled(!sync.isReachable)
         } header: {
             Text("Combined (Audio + Haptic)")
         } footer: {
@@ -355,13 +356,13 @@ struct CueTestingView: View {
     }
 
     private func playHaptic(_ preset: HapticPreset) {
-        sendHapticToWatch(pattern: preset.pattern)
+        PhoneWatchSync.shared.sendTestHaptic(pattern: preset.pattern)
         lastPlayedHaptic = preset.id
     }
 
     private func playCombined(audioVolume: Float, hapticPattern: String) {
         player.playCue(atVolume: audioVolume)
-        sendHapticToWatch(pattern: hapticPattern)
+        PhoneWatchSync.shared.sendTestHaptic(pattern: hapticPattern)
     }
 
     private func playRepeated() {
@@ -370,23 +371,10 @@ struct CueTestingView: View {
             let delay = Double(i) * repeatInterval
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 player.playCue(atVolume: volume)
-                if watchReachable {
-                    sendHapticToWatch(pattern: "triple_ascending")
+                if PhoneWatchSync.shared.isReachable {
+                    PhoneWatchSync.shared.sendTestHaptic(pattern: "triple_ascending")
                 }
             }
-        }
-    }
-
-    private func sendHapticToWatch(pattern: String) {
-        guard WCSession.default.isReachable else {
-            watchReachable = false
-            return
-        }
-        WCSession.default.sendMessage(
-            ["command": "testHaptic", "pattern": pattern],
-            replyHandler: nil
-        ) { _ in
-            DispatchQueue.main.async { watchReachable = false }
         }
     }
 }
@@ -403,3 +391,4 @@ private struct TestCuePlayer {
         player.playCueWithFadeIn(targetVolume: volume, fadeDuration: 0.1)
     }
 }
+
