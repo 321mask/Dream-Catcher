@@ -18,6 +18,7 @@ struct DashboardView: View {
     @State private var showCalibration = false
     @State private var showTraining = false
     @State private var sessionError: String?
+    @State private var showHapticTester = false
 
     @MainActor
     private var lastUpdatedString: String {
@@ -80,6 +81,12 @@ struct DashboardView: View {
                             await scheduleTest()
                         }
                     }
+
+                    Button {
+                        showHapticTester = true
+                    } label: {
+                        Label("Test Haptics", systemImage: "applewatch")
+                    }
                 }
             }
             .navigationTitle("LucidREM")
@@ -114,6 +121,9 @@ struct DashboardView: View {
                         coordinator.trainingCompleted()
                     }
                 }
+            }
+            .sheet(isPresented: $showHapticTester) {
+                TestHapticsView()
             }
             .onChange(of: coordinator.sleepPhase) { _, newPhase in
                 switch newPhase {
@@ -239,3 +249,4 @@ struct DashboardView: View {
         }
     }
 }
+

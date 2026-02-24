@@ -12,20 +12,22 @@ struct WatchDashboardView: View {
     var sessionManager: WatchSessionManager
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Sleep session controls (start/stop, status)
-                WatchSleepSessionView(sleepSession: sleepSession)
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Sleep session controls (start/stop, status)
+                    WatchSleepSessionView(sleepSession: sleepSession)
 
-                Divider()
-                    .padding(.horizontal)
+                    Divider()
+                        .padding(.horizontal)
 
-                // Connection status and REM windows
-                windowsSection
+                    // Connection status and REM windows
+                    windowsSection
+                }
+                .padding(.vertical, 8)
             }
-            .padding(.vertical, 8)
+            .navigationTitle("Dream Catcher")
         }
-        .navigationTitle("Dream Catcher")
     }
 
     // MARK: - Windows Section
@@ -69,3 +71,4 @@ struct WatchDashboardView: View {
         .padding(.horizontal, 4)
     }
 }
+

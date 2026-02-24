@@ -14,6 +14,7 @@
 import Foundation
 import WatchConnectivity
 import Observation
+import WatchKit
 
 @Observable
 final class WatchSessionManager: NSObject, WCSessionDelegate {
@@ -125,6 +126,23 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         case "tlr_playHaptic":
             WatchHapticCueEngine().playCue()
 
+        // NEW: Persist haptic strength sent from iPhone (0,1,2)
+        case "setHapticStrength":
+            if let value = payload["value"] as? Int {
+                UserDefaults.standard.set(value, forKey: "hapticStrength")
+            }
+
+        // NEW: Play one tap at the saved strength immediately
+        case "playSavedStrength":
+            let saved = UserDefaults.standard.integer(forKey: "hapticStrength")
+            let type: WKHapticType
+            switch saved {
+            case 0: type = .click
+            case 2: type = .notification
+            default: type = .directionUp
+            }
+            WKInterfaceDevice.current().play(type)
+
         default:
             break
         }
@@ -165,3 +183,4 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         }
     }
 }
+

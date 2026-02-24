@@ -27,6 +27,17 @@ struct WatchSleepSessionView: View {
             if sleepSession.isLive {
                 sessionInfo
             }
+
+            // Haptics tester navigation
+            NavigationLink {
+                HapticsControlView()
+            } label: {
+                Label("Haptics Test", systemImage: "waveform.path")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(maxWidth: .infinity, minHeight: 36)
+            }
+            .buttonStyle(.bordered)
+            .tint(.purple.opacity(0.8))
         }
         .onAppear {
             sleepSession.autoStartIfAppropriate()
@@ -72,12 +83,13 @@ struct WatchSleepSessionView: View {
                 Button {
                     sleepSession.start()
                 } label: {
-                    Label("Start Sleep", systemImage: "moon.fill")
+                    Label(sleepSession.isBusyStarting ? "Starting..." : "Start Sleep", systemImage: "moon.fill")
                         .font(.system(size: 14, weight: .medium))
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.indigo)
+                .disabled(sleepSession.isBusyStarting)
 
             case .active, .expiringSoon, .renewing:
                 Button(role: .destructive) {

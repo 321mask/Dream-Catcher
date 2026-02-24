@@ -2,29 +2,14 @@
 //  Watch_Dream_Catcher Watch App
 //
 //  Manages WKExtendedRuntimeSession for background haptic delivery during sleep.
-//
-//  WHY WKExtendedRuntimeSession (.smartAlarm), NOT HKWorkoutSession:
-//    HKWorkoutSession:
-//      - Logs a "workout" to Health -> corrupts Activity Rings
-//      - Shows persistent workout indicator on Watch face
-//      - Apple increasingly rejects sleep apps abusing workout sessions
-//    WKExtendedRuntimeSession (.smartAlarm):
-//      - Designed for sleep apps that deliver cues at calculated times
-//      - No workout artifacts, no Activity Ring pollution
-//      - Grants ~30 min of background runtime per session
-//      - Can be renewed: start a new session when one expires
-//
-//  SLEEP FOCUS INTEGRATION:
-//    iPhone sends "sleepFocusOn" / "sleepFocusOff" via WCSession.
-//    When isSleepFocusActive flips to true and the Watch app is foregrounded,
-//    the session auto-starts. When Sleep Focus turns off (morning),
-//    the session auto-stops (unless the user manually started it).
 
 import WatchKit
 import Observation
 
 @Observable
 final class WatchSleepSession: NSObject {
+
+    static let shared = WatchSleepSession()
 
     // MARK: - State
 
@@ -68,6 +53,11 @@ final class WatchSleepSession: NSObject {
         state == .active || state == .expiringSoon
     }
 
+    // Expose a consolidated "busy" flag to gate UI and WC starts
+    var isBusyStarting: Bool {
+        isStarting || isScheduled || pendingRenewal || pendingStop
+    }
+
     // MARK: - Private
 
     private var session: WKExtendedRuntimeSession?
@@ -75,27 +65,87 @@ final class WatchSleepSession: NSObject {
     private var manuallyStarted = false
     private var sleepSessionRequested = false
 
+    // Strict guards for scheduling/starting
+    private var isStarting = false
+    private var isScheduled = false
+
+    // Flow coordination
+    private var pendingRenewal = false
+    private var pendingStop = false
+
+    // Cooldowns to avoid overlapping scheduled starts/invalidation races
+    private let postInvalidateCooldown: TimeInterval = 1.2
+    private let minInterStartSpacing: TimeInterval = 1.8
+    private var lastStartRequestAt: Date?
+    private var lastInvalidationAt: Date?
+
+    private var requiresScheduledStart: Bool {
+        let modes = (Bundle.main.object(forInfoDictionaryKey: "WKBackgroundModes") as? [String]) ?? []
+        return modes.contains("alarm")
+    }
+
+    // Ensure main-thread mutations
+    private func ensureMain(_ block: @escaping () -> Void) {
+        if Thread.isMainThread { block() }
+        else { DispatchQueue.main.async { block() } }
+    }
+
     // MARK: - Start
 
     func start() {
-        manuallyStarted = true
-        sleepSessionRequested = true
-        startSession()
+        ensureMain {
+            // Only allow explicit user start from inactive/expired
+            guard self.state == .inactive || self.state == .expired else { return }
+            // Don’t start while any stop/renewal is pending
+            guard !self.pendingStop, !self.pendingRenewal else { return }
+            // Don’t re-enter while internal start/schedule is in flight.
+            guard !self.isBusyStarting, self.session == nil else { return }
+
+            self.manuallyStarted = true
+            self.sleepSessionRequested = true
+            self.startSession()
+        }
     }
 
     func autoStartIfAppropriate() {
-        guard state == .inactive || state == .expired else { return }
-        guard isSleepFocusActive || sleepSessionRequested else { return }
+        ensureMain {
+            // Only auto-start from inactive/expired, not during renewal or active.
+            guard self.state == .inactive || self.state == .expired else { return }
+            guard self.isSleepFocusActive || self.sleepSessionRequested else { return }
+            // Don’t auto-start while any stop/renewal is pending
+            guard !self.pendingStop, !self.pendingRenewal else { return }
+            // Don’t re-enter while internal start/schedule is in flight.
+            guard !self.isBusyStarting, self.session == nil else { return }
 
-        manuallyStarted = false
-        sleepSessionRequested = true
-        startSession()
+            self.manuallyStarted = false
+            self.sleepSessionRequested = true
+            self.startSession()
+        }
     }
 
     func stop() {
-        sleepSessionRequested = false
-        manuallyStarted = false
-        session?.invalidate()
+        ensureMain {
+            self.sleepSessionRequested = false
+            self.manuallyStarted = false
+
+            // If there's no session object, just reset state.
+            guard let s = self.session else {
+                self.finishStopped()
+                return
+            }
+
+            // Mark stop pending and invalidate. Do NOT nil out session here.
+            self.pendingStop = true
+            s.invalidate()
+        }
+    }
+
+    private func finishStopped() {
+        isStarting = false
+        isScheduled = false
+        pendingRenewal = false
+        pendingStop = false
+
         session = nil
         state = .inactive
         sessionStartTime = nil
@@ -105,45 +155,115 @@ final class WatchSleepSession: NSObject {
 
     // MARK: - Internal
 
-    private func startSession() {
-        guard session == nil || state == .inactive || state == .expired else {
-            return
+    private func canIssueNewStartNow() -> Bool {
+        if let t = lastStartRequestAt, Date().timeIntervalSince(t) < minInterStartSpacing {
+            return false
         }
+        if let t = lastInvalidationAt, Date().timeIntervalSince(t) < postInvalidateCooldown {
+            return false
+        }
+        return true
+    }
+
+    private func startSession() {
+        // Prevent any overlapping starts when already starting or scheduled.
+        guard !isStarting, !isScheduled else { return }
+        // Respect cooldowns between starts/invalidation.
+        guard canIssueNewStartNow() else { return }
+        // If any current session object exists, don't create another one.
+        guard session == nil else { return }
+        // Only create/start when state is appropriate.
+        guard state == .inactive || state == .expired else { return }
+        // Don’t start if a stop/renewal is pending
+        guard !pendingStop, !pendingRenewal else { return }
+
+        isStarting = true
+        isScheduled = true
+        lastStartRequestAt = Date()
 
         let newSession = WKExtendedRuntimeSession()
         newSession.delegate = self
         self.session = newSession
-        newSession.start()
+        startRuntime(newSession)
 
-        state = .active
-        sessionStartTime = sessionStartTime ?? Date()
+        // Do not optimistically set .active; wait for delegate confirmation.
         WatchCueScheduler.shared.hasLiveSession = true
+        if sessionStartTime == nil {
+            sessionStartTime = Date()
+        }
     }
 
     // MARK: - Renewal
 
     private func renewSession() {
+        // If the user canceled between expiry and renewal, mark expired.
         guard sleepSessionRequested else {
             state = .expired
             WatchCueScheduler.shared.hasLiveSession = false
             return
         }
+        // Don’t renew if a stop is pending
+        guard !pendingStop else { return }
 
+        // If there's no live session object, try a fresh start after cooldown.
+        guard let s = session else {
+            state = .renewing
+            isStarting = false
+            isScheduled = false
+            pendingRenewal = true
+            // Enforce cooldown before attempting to start.
+            DispatchQueue.main.asyncAfter(deadline: .now() + postInvalidateCooldown) { [weak self] in
+                self?.attemptStartAfterInvalidationIfPending()
+            }
+            return
+        }
+
+        // Normal renewal path: invalidate then start again after invalidation.
         state = .renewing
-        session?.invalidate()
-        session = nil
+        isStarting = true
+        isScheduled = false
+        pendingRenewal = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self, self.sleepSessionRequested else { return }
+        // Do NOT nil out session here; wait for didInvalidate.
+        s.invalidate()
+    }
 
-            let newSession = WKExtendedRuntimeSession()
-            newSession.delegate = self
-            self.session = newSession
-            newSession.start()
+    private func attemptStartAfterInvalidationIfPending() {
+        // Called after didInvalidate or cooldown, only if renewal is pending and still requested.
+        guard pendingRenewal, sleepSessionRequested else { return }
+        // Don’t start if a stop is pending
+        guard !pendingStop else { return }
+        // Respect cooldowns
+        guard canIssueNewStartNow() else {
+            // Try once more when cooldown likely ends
+            let delay: TimeInterval = minInterStartSpacing
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.attemptStartAfterInvalidationIfPending()
+            }
+            return
+        }
+        // Don’t double-start if something already exists/scheduled.
+        guard session == nil, !isScheduled, !isStarting else { return }
 
-            self.sessionsRenewed += 1
-            self.state = .active
-            WatchCueScheduler.shared.hasLiveSession = true
+        isStarting = true
+        isScheduled = true
+        lastStartRequestAt = Date()
+
+        let newSession = WKExtendedRuntimeSession()
+        newSession.delegate = self
+        self.session = newSession
+        startRuntime(newSession)
+
+        sessionsRenewed += 1
+        WatchCueScheduler.shared.hasLiveSession = true
+        // Wait for didStart to set .active and clear flags.
+    }
+
+    private func startRuntime(_ runtime: WKExtendedRuntimeSession) {
+        if requiresScheduledStart {
+            runtime.start(at: Date().addingTimeInterval(5))
+        } else {
+            runtime.start()
         }
     }
 }
@@ -155,16 +275,29 @@ extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
     func extendedRuntimeSessionDidStart(
         _ extendedRuntimeSession: WKExtendedRuntimeSession
     ) {
-        state = .active
-        WatchCueScheduler.shared.hasLiveSession = true
+        ensureMain {
+            guard extendedRuntimeSession === self.session else { return }
+            self.state = .active
+            WatchCueScheduler.shared.hasLiveSession = true
+            self.isStarting = false
+            self.isScheduled = false
+            self.pendingRenewal = false
+            // If a stop was requested while starting, immediately invalidate.
+            if self.pendingStop {
+                extendedRuntimeSession.invalidate()
+            }
+        }
     }
 
     func extendedRuntimeSessionWillExpire(
         _ extendedRuntimeSession: WKExtendedRuntimeSession
     ) {
-        state = .expiringSoon
-        DispatchQueue.main.asyncAfter(deadline: .now() + renewalLeadTime) {
-            [weak self] in self?.renewSession()
+        ensureMain {
+            guard extendedRuntimeSession === self.session else { return }
+            self.state = .expiringSoon
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.renewalLeadTime) {
+                [weak self] in self?.renewSession()
+            }
         }
     }
 
@@ -173,23 +306,72 @@ extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
         didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
         error: Error?
     ) {
-        switch reason {
-        case .expired:
-            if state != .renewing { renewSession() }
-        case .sessionInProgress:
-            state = .error("Another session is already running")
-            WatchCueScheduler.shared.hasLiveSession = false
-        case .error:
-            state = .error(error?.localizedDescription ?? "Unknown error")
-            WatchCueScheduler.shared.hasLiveSession = false
-        case .none:
-            if state != .renewing {
-                state = .inactive
-                WatchCueScheduler.shared.hasLiveSession = false
+        ensureMain {
+            // Record invalidation time for cooldown gating.
+            self.lastInvalidationAt = Date()
+
+            // Only react if this is the tracked session or we have none.
+            if self.session == nil || extendedRuntimeSession === self.session {
+                // Now it is safe to release the session object.
+                if extendedRuntimeSession === self.session {
+                    self.session?.delegate = nil
+                    self.session = nil
+                }
+
+                switch reason {
+                case .expired:
+                    if self.pendingStop {
+                        self.finishStopped()
+                    } else if self.pendingRenewal {
+                        // Start new after a short cooldown.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + self.postInvalidateCooldown) {
+                            [weak self] in self?.attemptStartAfterInvalidationIfPending()
+                        }
+                    } else {
+                        // Expired without renewal intent.
+                        self.state = .expired
+                        self.isStarting = false
+                        self.isScheduled = false
+                        WatchCueScheduler.shared.hasLiveSession = false
+                    }
+
+                case .sessionInProgress:
+                    // Another session is already running/scheduled; wait for its callbacks.
+                    self.isStarting = false
+                    // Keep isScheduled conservative; do not reissue start immediately.
+
+                case .error:
+                    self.state = .error(error?.localizedDescription ?? "Unknown error")
+                    self.isStarting = false
+                    self.isScheduled = false
+                    self.pendingRenewal = false
+                    self.pendingStop = false
+                    WatchCueScheduler.shared.hasLiveSession = false
+
+                case .none:
+                    if self.pendingStop {
+                        self.finishStopped()
+                    } else if self.pendingRenewal {
+                        // Start new after a short cooldown.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + self.postInvalidateCooldown) {
+                            [weak self] in self?.attemptStartAfterInvalidationIfPending()
+                        }
+                    } else if self.state != .renewing {
+                        self.state = .inactive
+                        self.isStarting = false
+                        self.isScheduled = false
+                        WatchCueScheduler.shared.hasLiveSession = false
+                    }
+
+                @unknown default:
+                    self.state = .expired
+                    self.isStarting = false
+                    self.isScheduled = false
+                    self.pendingRenewal = false
+                    self.pendingStop = false
+                    WatchCueScheduler.shared.hasLiveSession = false
+                }
             }
-        @unknown default:
-            state = .expired
-            WatchCueScheduler.shared.hasLiveSession = false
         }
     }
 }

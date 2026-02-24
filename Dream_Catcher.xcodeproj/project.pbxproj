@@ -456,6 +456,7 @@
 				DEVELOPMENT_TEAM = TJNHB2R4K6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Watch_Dream_Catcher;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
@@ -491,6 +492,7 @@
 				DEVELOPMENT_TEAM = TJNHB2R4K6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Watch_Dream_Catcher;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
