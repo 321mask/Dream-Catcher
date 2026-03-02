@@ -34,6 +34,12 @@ final class WatchSleepSession: NSObject {
         }
     }
 
+    enum SessionControlSource {
+        case localWatch
+        case remotePhone
+        case `internal`
+    }
+
     private(set) var state: SessionState = .inactive
     private(set) var sessionStartTime: Date?
     private(set) var sessionsRenewed: Int = 0
@@ -79,6 +85,13 @@ final class WatchSleepSession: NSObject {
     private var lastStartRequestAt: Date?
     private var lastInvalidationAt: Date?
 
+    // Smart alarm sessions are schedulable and must use start(at:), not start().
+    private let scheduledAlarmStartLeadTime: TimeInterval = 2
+    private let usesSchedulableAlarmRuntime: Bool = {
+        let modes = (Bundle.main.object(forInfoDictionaryKey: "WKBackgroundModes") as? [String]) ?? []
+        return modes.contains { $0.caseInsensitiveCompare("alarm") == .orderedSame }
+    }()
+
     // Ensure main-thread mutations
     private func ensureMain(_ block: @escaping () -> Void) {
         if Thread.isMainThread { block() }
@@ -87,7 +100,7 @@ final class WatchSleepSession: NSObject {
 
     // MARK: - Start
 
-    func start() {
+    func start(source: SessionControlSource = .internal) {
         ensureMain {
             // Only allow explicit user start from inactive/expired
             guard self.state == .inactive || self.state == .expired else { return }
@@ -96,6 +109,9 @@ final class WatchSleepSession: NSObject {
             // Don’t re-enter while internal start/schedule is in flight.
             guard !self.isBusyStarting, self.session == nil else { return }
 
+            if source == .localWatch {
+                WatchSessionManager.shared.sendStartSleepSessionToPhone()
+            }
             self.manuallyStarted = true
             self.sleepSessionRequested = true
             self.startSession()
@@ -118,8 +134,11 @@ final class WatchSleepSession: NSObject {
         }
     }
 
-    func stop() {
+    func stop(source: SessionControlSource = .internal) {
         ensureMain {
+            if source == .localWatch {
+                WatchSessionManager.shared.sendStopSleepSessionToPhone()
+            }
             self.sleepSessionRequested = false
             self.manuallyStarted = false
 
@@ -182,10 +201,7 @@ final class WatchSleepSession: NSObject {
         startRuntime(newSession)
 
         // Do not optimistically set .active; wait for delegate confirmation.
-        WatchCueScheduler.shared.hasLiveSession = true
-        if sessionStartTime == nil {
-            sessionStartTime = Date()
-        }
+        WatchCueScheduler.shared.hasLiveSession = false
     }
 
     // MARK: - Renewal
@@ -250,19 +266,17 @@ final class WatchSleepSession: NSObject {
         startRuntime(newSession)
 
         sessionsRenewed += 1
-        WatchCueScheduler.shared.hasLiveSession = true
+        WatchCueScheduler.shared.hasLiveSession = false
         // Wait for didStart to set .active and clear flags.
     }
 
     private func startRuntime(_ runtime: WKExtendedRuntimeSession) {
-        // Always call start() when the app is in the foreground.
-        // The "alarm" WKBackgroundMode determines the session *type*, not that
-        // start(at:) must be used. start(at:) is only for scheduling a future
-        // alarm while still in the foreground. Using start(at:) with a near-future
-        // date causes the session to stay in .scheduled state; if the app goes
-        // to background before the date arrives the system relaunches the app,
-        // and without a handle(_:) delegate method the session is immediately killed.
-        runtime.start()
+        // Schedulable alarm sessions reject start() with SessionErrorDomain Code=17.
+        if usesSchedulableAlarmRuntime {
+            runtime.start(at: Date().addingTimeInterval(scheduledAlarmStartLeadTime))
+        } else {
+            runtime.start()
+        }
     }
 
     // Called by WKApplicationDelegate when the system relaunches the app
@@ -277,14 +291,23 @@ final class WatchSleepSession: NSObject {
             session.delegate = self
             self.session = session
             self.sleepSessionRequested = true
-            self.state = .active
-            self.isStarting = false
-            self.isScheduled = false
             self.pendingRenewal = false
-            if self.sessionStartTime == nil {
-                self.sessionStartTime = Date()
+
+            if session.state == .running {
+                self.state = .active
+                self.isStarting = false
+                self.isScheduled = false
+                if self.sessionStartTime == nil {
+                    self.sessionStartTime = Date()
+                }
+                WatchCueScheduler.shared.hasLiveSession = true
+            } else {
+                // If the system hands us a scheduled session, wait for didStart.
+                self.state = .inactive
+                self.isStarting = true
+                self.isScheduled = true
+                WatchCueScheduler.shared.hasLiveSession = false
             }
-            WatchCueScheduler.shared.hasLiveSession = true
         }
     }
 }
@@ -303,6 +326,9 @@ extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
             self.isStarting = false
             self.isScheduled = false
             self.pendingRenewal = false
+            if self.sessionStartTime == nil {
+                self.sessionStartTime = Date()
+            }
             // If a stop was requested while starting, immediately invalidate.
             if self.pendingStop {
                 extendedRuntimeSession.invalidate()

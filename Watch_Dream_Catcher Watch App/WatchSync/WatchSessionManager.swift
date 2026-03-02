@@ -18,6 +18,8 @@ import WatchKit
 
 @Observable
 final class WatchSessionManager: NSObject, WCSessionDelegate {
+    static let shared = WatchSessionManager()
+
     var lastReceivedWindows: [DateInterval] = []
     var status: String = "Waiting..."
 
@@ -25,7 +27,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     /// forward Sleep Focus and session commands to it.
     weak var sleepSession: WatchSleepSession?
 
-    override init() {
+    private override init() {
         super.init()
         activate()
     }
@@ -68,6 +70,29 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     // MARK: - Payload Handling
 
+    func sendStartSleepSessionToPhone() {
+        sendCommandToPhone("startSleepSession")
+    }
+
+    func sendStopSleepSessionToPhone() {
+        sendCommandToPhone("stopSleepSession")
+    }
+
+    private func sendCommandToPhone(_ command: String) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+
+        let payload: [String: Any] = ["command": command]
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: nil) { error in
+                print("Watch->Phone WC sendMessage error: \(error)")
+            }
+        } else {
+            session.transferUserInfo(payload)
+        }
+    }
+
     private func handle(payload: [String: Any]) {
         // Check for command-based messages first
         if let command = payload["command"] as? String {
@@ -91,10 +116,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
         // Explicit session control from iPhone
         case "startSleepSession":
-            sleepSession?.start()
+            sleepSession?.start(source: .remotePhone)
 
         case "stopSleepSession":
-            sleepSession?.stop()
+            sleepSession?.stop(source: .remotePhone)
 
         // REM cue scheduling from iPhone
         case "scheduleRemCues":
@@ -183,4 +208,3 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         }
     }
 }
-

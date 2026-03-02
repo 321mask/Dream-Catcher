@@ -11,15 +11,18 @@ import SwiftData
 @main
 struct Dream_CatcherApp: App {
 
-    @State private var coordinator = AppCoordinator()
+    @State private var coordinator: AppCoordinator
+
+    init() {
+        let coordinator = AppCoordinator()
+        _coordinator = State(initialValue: coordinator)
+        PhoneWatchSync.shared.sleepSessionController = coordinator
+    }
     
     var body: some Scene {
         WindowGroup {
-             
-                OnboardingView(coordinator: coordinator)
-            }
-            .modelContainer(AppContainer.makeModelContainer())
+            OnboardingView(coordinator: coordinator)
         }
+        .modelContainer(AppContainer.makeModelContainer())
     }
-
-
+}

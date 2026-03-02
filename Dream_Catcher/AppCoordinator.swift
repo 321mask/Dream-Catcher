@@ -26,6 +26,11 @@ final class AppCoordinator {
         case monitoring
     }
 
+    enum SleepControlSource {
+        case local
+        case remoteWatch
+    }
+
     var sleepPhase: SleepPhase = .idle
 
     /// Saved calibration (loaded from UserDefaults on launch).
@@ -120,7 +125,12 @@ final class AppCoordinator {
     }
 
     /// Begin the sleep session flow. Returns the phase to present.
-    func beginSleepFlow() throws {
+    func beginSleepFlow(source: SleepControlSource = .local) throws {
+        guard sleepPhase == .idle else { return }
+        if source == .local {
+            PhoneWatchSync.shared.sendStartSleepSession()
+        }
+
         if needsCalibration {
             sleepPhase = .calibrating
         } else {
@@ -172,7 +182,11 @@ final class AppCoordinator {
 
     /// End the sleep session and return the night log.
     @discardableResult
-    func endSleepSession() -> [REMCueScheduler.CueEvent] {
+    func endSleepSession(source: SleepControlSource = .local) -> [REMCueScheduler.CueEvent] {
+        if source == .local {
+            PhoneWatchSync.shared.sendStopSleepSession()
+        }
+
         let nightLog = remScheduler?.nightLog ?? []
         remScheduler?.stopNight()
         remScheduler = nil
@@ -205,5 +219,19 @@ final class AppCoordinator {
         }
 
         return candidate
+    }
+}
+
+extension AppCoordinator: PhoneSleepSessionControlling {
+    func handleWatchRequestedSleepStart() {
+        do {
+            try beginSleepFlow(source: .remoteWatch)
+        } catch {
+            statusText = "Watch start failed: \(error.localizedDescription)"
+        }
+    }
+
+    func handleWatchRequestedSleepStop() {
+        _ = endSleepSession(source: .remoteWatch)
     }
 }

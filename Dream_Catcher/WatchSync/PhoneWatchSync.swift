@@ -9,6 +9,11 @@ import Foundation
 import WatchConnectivity
 import Observation
 
+protocol PhoneSleepSessionControlling: AnyObject {
+    func handleWatchRequestedSleepStart()
+    func handleWatchRequestedSleepStop()
+}
+
 @Observable
 final class PhoneWatchSync: NSObject, WCSessionDelegate {
     static let shared = PhoneWatchSync()
@@ -24,8 +29,13 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     // iPhone -> Watch: play haptic cue
     static let playHaptic = "tlr_playHaptic"
 
+    // Bidirectional sleep session control
+    static let startSleepSession = "startSleepSession"
+    static let stopSleepSession = "stopSleepSession"
+
     /// Set by AppCoordinator so Watch signals can reach the REMCueScheduler.
     weak var remCueScheduler: REMCueScheduler?
+    weak var sleepSessionController: (any PhoneSleepSessionControlling)?
 
     // MARK: - Reachability (published to SwiftUI)
 
@@ -65,6 +75,14 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     /// Used by CueTestingView to trigger haptic tests.
     func sendTestHaptic(pattern: String) {
         send(["command": "testHaptic", "pattern": pattern])
+    }
+
+    func sendStartSleepSession() {
+        send(["command": Self.startSleepSession])
+    }
+
+    func sendStopSleepSession() {
+        send(["command": Self.stopSleepSession])
     }
 
     // MARK: - Sending windows (unchanged)
@@ -126,6 +144,10 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         handleIncoming(message)
     }
 
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any]) {
+        handleIncoming(userInfo)
+    }
+
     // MARK: - Incoming Message Handling
 
     private func handleIncoming(_ payload: [String: Any]) {
@@ -141,10 +163,13 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
                 self?.remCueScheduler?.awakeningDetected()
             case "tlr_remEnded":
                 self?.remCueScheduler?.remEnded()
+            case Self.startSleepSession:
+                self?.sleepSessionController?.handleWatchRequestedSleepStart()
+            case Self.stopSleepSession:
+                self?.sleepSessionController?.handleWatchRequestedSleepStop()
             default:
                 break
             }
         }
     }
 }
-

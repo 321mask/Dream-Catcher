@@ -81,7 +81,7 @@ struct WatchSleepSessionView: View {
             switch sleepSession.state {
             case .inactive, .expired, .error:
                 Button {
-                    sleepSession.start()
+                    sleepSession.start(source: .localWatch)
                 } label: {
                     Label(sleepSession.isBusyStarting ? "Starting..." : "Start Sleep", systemImage: "moon.fill")
                         .font(.system(size: 14, weight: .medium))
@@ -106,7 +106,7 @@ struct WatchSleepSessionView: View {
                     titleVisibility: .visible
                 ) {
                     Button("End Sleep", role: .destructive) {
-                        sleepSession.stop()
+                        sleepSession.stop(source: .localWatch)
                     }
                     Button("Cancel", role: .cancel) {}
                 }

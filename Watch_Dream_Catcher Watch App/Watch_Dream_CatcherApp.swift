@@ -26,7 +26,7 @@ struct Watch_Dream_Catcher_Watch_AppApp: App {
     @WKApplicationDelegateAdaptor var appDelegate: WatchAppDelegate
 
     @State private var sleepSession = WatchSleepSession.shared
-    @State private var sessionManager = WatchSessionManager()
+    @State private var sessionManager = WatchSessionManager.shared
 
     var body: some Scene {
         WindowGroup {
