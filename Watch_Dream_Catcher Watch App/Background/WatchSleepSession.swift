@@ -59,6 +59,10 @@ final class WatchSleepSession: NSObject {
         state == .active || state == .expiringSoon
     }
 
+    var isSessionRequested: Bool {
+        sleepSessionRequested
+    }
+
     // Expose a consolidated "busy" flag to gate UI and WC starts
     var isBusyStarting: Bool {
         isStarting || isScheduled || pendingRenewal || pendingStop
@@ -114,6 +118,7 @@ final class WatchSleepSession: NSObject {
             }
             self.manuallyStarted = true
             self.sleepSessionRequested = true
+            WatchSessionManager.shared.publishSleepSessionState(isActive: true)
             self.startSession()
         }
     }
@@ -130,6 +135,7 @@ final class WatchSleepSession: NSObject {
 
             self.manuallyStarted = false
             self.sleepSessionRequested = true
+            WatchSessionManager.shared.publishSleepSessionState(isActive: true)
             self.startSession()
         }
     }
@@ -141,6 +147,7 @@ final class WatchSleepSession: NSObject {
             }
             self.sleepSessionRequested = false
             self.manuallyStarted = false
+            WatchSessionManager.shared.publishSleepSessionState(isActive: false)
 
             // If there's no session object, just reset state.
             guard let s = self.session else {
@@ -165,6 +172,7 @@ final class WatchSleepSession: NSObject {
         sessionStartTime = nil
         sessionsRenewed = 0
         WatchCueScheduler.shared.hasLiveSession = false
+        WatchSessionManager.shared.publishSleepSessionState(isActive: false)
     }
 
     // MARK: - Internal
@@ -292,6 +300,7 @@ final class WatchSleepSession: NSObject {
             self.session = session
             self.sleepSessionRequested = true
             self.pendingRenewal = false
+            WatchSessionManager.shared.publishSleepSessionState(isActive: true)
 
             if session.state == .running {
                 self.state = .active
@@ -410,7 +419,7 @@ extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
                         WatchCueScheduler.shared.hasLiveSession = false
                     }
 
-                @unknown default:
+                default:
                     self.state = .expired
                     self.isStarting = false
                     self.isScheduled = false

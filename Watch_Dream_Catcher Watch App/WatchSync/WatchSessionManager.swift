@@ -19,13 +19,19 @@ import WatchKit
 @Observable
 final class WatchSessionManager: NSObject, WCSessionDelegate {
     static let shared = WatchSessionManager()
+    static let syncSleepSessionState = "syncSleepSessionState"
+    static let syncSleepSessionUpdatedAt = "syncSleepSessionUpdatedAt"
 
     var lastReceivedWindows: [DateInterval] = []
     var status: String = "Waiting..."
 
     /// Set externally by the Watch app entry point so we can
     /// forward Sleep Focus and session commands to it.
-    weak var sleepSession: WatchSleepSession?
+    weak var sleepSession: WatchSleepSession? {
+        didSet {
+            refreshSleepSessionStateFromSession()
+        }
+    }
 
     private override init() {
         super.init()
@@ -47,6 +53,8 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
             self.status = (activationState == .activated) ? "Connected" : "Not active"
+            self.handle(payload: session.receivedApplicationContext)
+            self.refreshSleepSessionStateFromSession()
         }
     }
 
@@ -72,10 +80,25 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     func sendStartSleepSessionToPhone() {
         sendCommandToPhone("startSleepSession")
+        publishSleepSessionState(isActive: true)
     }
 
     func sendStopSleepSessionToPhone() {
         sendCommandToPhone("stopSleepSession")
+        publishSleepSessionState(isActive: false)
+    }
+
+    func publishSleepSessionState(isActive: Bool) {
+        publishApplicationContext([
+            Self.syncSleepSessionState: isActive,
+            Self.syncSleepSessionUpdatedAt: Date().timeIntervalSince1970
+        ])
+    }
+
+    func refreshSleepSessionStateFromSession() {
+        guard let sleepSession else { return }
+        handle(payload: WCSession.default.receivedApplicationContext)
+        publishSleepSessionState(isActive: sleepSession.isSessionRequested)
     }
 
     private func sendCommandToPhone(_ command: String) {
@@ -94,6 +117,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     }
 
     private func handle(payload: [String: Any]) {
+        if let isActive = payload[Self.syncSleepSessionState] as? Bool {
+            applyPhoneSessionState(isActive: isActive)
+        }
+
         // Check for command-based messages first
         if let command = payload["command"] as? String {
             handleCommand(command, payload: payload)
@@ -101,7 +128,9 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         }
 
         // Otherwise, treat as REM window payload
-        handleWindowPayload(payload)
+        if payload["windows"] != nil {
+            handleWindowPayload(payload)
+        }
     }
 
     private func handleCommand(_ command: String, payload: [String: Any]) {
@@ -170,6 +199,34 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
         default:
             break
+        }
+    }
+
+    private func applyPhoneSessionState(isActive: Bool) {
+        guard let sleepSession else { return }
+
+        if isActive {
+            if sleepSession.isSessionRequested { return }
+            sleepSession.start(source: .remotePhone)
+        } else if sleepSession.isSessionRequested {
+            sleepSession.stop(source: .remotePhone)
+        }
+    }
+
+    private func publishApplicationContext(_ values: [String: Any]) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+
+        var context = session.applicationContext
+        for (key, value) in values {
+            context[key] = value
+        }
+
+        do {
+            try session.updateApplicationContext(context)
+        } catch {
+            print("Watch WC updateApplicationContext error: \(error)")
         }
     }
 

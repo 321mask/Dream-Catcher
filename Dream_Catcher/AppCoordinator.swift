@@ -31,7 +31,11 @@ final class AppCoordinator {
         case remoteWatch
     }
 
-    var sleepPhase: SleepPhase = .idle
+    var sleepPhase: SleepPhase = .idle {
+        didSet {
+            PhoneWatchSync.shared.publishSleepSessionState(isActive: isSleepSessionOngoing)
+        }
+    }
 
     /// Saved calibration (loaded from UserDefaults on launch).
     var calibration: VolumeCalibration?
@@ -50,6 +54,8 @@ final class AppCoordinator {
     private let cueScheduler = CueScheduler()
     let cuePlayer = LucidCuePlayer()
     let sleepFocusObserver = SleepFocusObserver()
+
+    init() {}
 
     // MARK: - Bootstrap
 
@@ -223,6 +229,10 @@ final class AppCoordinator {
 }
 
 extension AppCoordinator: PhoneSleepSessionControlling {
+    var isSleepSessionOngoing: Bool {
+        sleepPhase != .idle
+    }
+
     func handleWatchRequestedSleepStart() {
         do {
             try beginSleepFlow(source: .remoteWatch)
@@ -233,5 +243,18 @@ extension AppCoordinator: PhoneSleepSessionControlling {
 
     func handleWatchRequestedSleepStop() {
         _ = endSleepSession(source: .remoteWatch)
+    }
+
+    func applyWatchSessionState(isActive: Bool) {
+        if isActive {
+            guard sleepPhase == .idle else { return }
+            do {
+                try beginSleepFlow(source: .remoteWatch)
+            } catch {
+                statusText = "Sync start failed: \(error.localizedDescription)"
+            }
+        } else if sleepPhase != .idle {
+            _ = endSleepSession(source: .remoteWatch)
+        }
     }
 }

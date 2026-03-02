@@ -110,12 +110,7 @@ struct DashboardView: View {
                     }
                 )
             }
-            .fullScreenCover(isPresented: $showTraining, onDismiss: {
-                // If still in training phase, user cancelled early
-                if coordinator.sleepPhase == .training {
-                    coordinator.endSleepSession()
-                }
-            }) {
+            .fullScreenCover(isPresented: $showTraining) {
                 if let session = coordinator.trainingSession {
                     PreSleepTrainingView(session: session) {
                         coordinator.trainingCompleted()

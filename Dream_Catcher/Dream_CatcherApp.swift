@@ -17,6 +17,7 @@ struct Dream_CatcherApp: App {
         let coordinator = AppCoordinator()
         _coordinator = State(initialValue: coordinator)
         PhoneWatchSync.shared.sleepSessionController = coordinator
+        PhoneWatchSync.shared.refreshSleepSessionStateFromController()
     }
     
     var body: some Scene {

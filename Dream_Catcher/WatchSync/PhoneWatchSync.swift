@@ -10,8 +10,10 @@ import WatchConnectivity
 import Observation
 
 protocol PhoneSleepSessionControlling: AnyObject {
+    var isSleepSessionOngoing: Bool { get }
     func handleWatchRequestedSleepStart()
     func handleWatchRequestedSleepStop()
+    func applyWatchSessionState(isActive: Bool)
 }
 
 @Observable
@@ -32,6 +34,8 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     // Bidirectional sleep session control
     static let startSleepSession = "startSleepSession"
     static let stopSleepSession = "stopSleepSession"
+    static let syncSleepSessionState = "syncSleepSessionState"
+    static let syncSleepSessionUpdatedAt = "syncSleepSessionUpdatedAt"
 
     /// Set by AppCoordinator so Watch signals can reach the REMCueScheduler.
     weak var remCueScheduler: REMCueScheduler?
@@ -79,10 +83,27 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
 
     func sendStartSleepSession() {
         send(["command": Self.startSleepSession])
+        publishSleepSessionState(isActive: true)
     }
 
     func sendStopSleepSession() {
         send(["command": Self.stopSleepSession])
+        publishSleepSessionState(isActive: false)
+    }
+
+    func publishSleepSessionState(isActive: Bool) {
+        publishApplicationContext([
+            Self.syncSleepSessionState: isActive,
+            Self.syncSleepSessionUpdatedAt: Date().timeIntervalSince1970
+        ])
+    }
+
+    func refreshSleepSessionStateFromController() {
+        guard let sleepSessionController else { return }
+        if WCSession.isSupported() {
+            handleIncoming(WCSession.default.receivedApplicationContext)
+        }
+        publishSleepSessionState(isActive: sleepSessionController.isSleepSessionOngoing)
     }
 
     // MARK: - Sending windows (unchanged)
@@ -107,11 +128,7 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
                 log("WC sendMessage error: \(err)")
             })
         } else {
-            do {
-                try session.updateApplicationContext(message)
-            } catch {
-                log("WC updateApplicationContext error: \(error)")
-            }
+            publishApplicationContext(message)
         }
     }
 
@@ -120,6 +137,8 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async { [weak self] in
             self?.isReachable = session.isReachable
+            self?.handleIncoming(session.receivedApplicationContext)
+            self?.refreshSleepSessionStateFromController()
         }
     }
 
@@ -151,6 +170,12 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     // MARK: - Incoming Message Handling
 
     private func handleIncoming(_ payload: [String: Any]) {
+        if let isActive = payload[Self.syncSleepSessionState] as? Bool {
+            DispatchQueue.main.async { [weak self] in
+                self?.sleepSessionController?.applyWatchSessionState(isActive: isActive)
+            }
+        }
+
         guard let command = payload["command"] as? String else { return }
 
         DispatchQueue.main.async { [weak self] in
@@ -170,6 +195,23 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
             default:
                 break
             }
+        }
+    }
+
+    private func publishApplicationContext(_ values: [String: Any]) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+
+        var context = session.applicationContext
+        for (key, value) in values {
+            context[key] = value
+        }
+
+        do {
+            try session.updateApplicationContext(context)
+        } catch {
+            log("WC updateApplicationContext error: \(error)")
         }
     }
 }
