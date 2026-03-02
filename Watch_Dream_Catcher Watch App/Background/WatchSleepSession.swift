@@ -79,11 +79,6 @@ final class WatchSleepSession: NSObject {
     private var lastStartRequestAt: Date?
     private var lastInvalidationAt: Date?
 
-    private var requiresScheduledStart: Bool {
-        let modes = (Bundle.main.object(forInfoDictionaryKey: "WKBackgroundModes") as? [String]) ?? []
-        return modes.contains("alarm")
-    }
-
     // Ensure main-thread mutations
     private func ensureMain(_ block: @escaping () -> Void) {
         if Thread.isMainThread { block() }
@@ -260,10 +255,36 @@ final class WatchSleepSession: NSObject {
     }
 
     private func startRuntime(_ runtime: WKExtendedRuntimeSession) {
-        if requiresScheduledStart {
-            runtime.start(at: Date().addingTimeInterval(5))
-        } else {
-            runtime.start()
+        // Always call start() when the app is in the foreground.
+        // The "alarm" WKBackgroundMode determines the session *type*, not that
+        // start(at:) must be used. start(at:) is only for scheduling a future
+        // alarm while still in the foreground. Using start(at:) with a near-future
+        // date causes the session to stay in .scheduled state; if the app goes
+        // to background before the date arrives the system relaunches the app,
+        // and without a handle(_:) delegate method the session is immediately killed.
+        runtime.start()
+    }
+
+    // Called by WKApplicationDelegate when the system relaunches the app
+    // for a previously-scheduled alarm session (or crash recovery).
+    func handleSystemSession(_ session: WKExtendedRuntimeSession) {
+        ensureMain {
+            // If we already have a live session, ignore the handed-back one.
+            guard self.session == nil else {
+                session.invalidate()
+                return
+            }
+            session.delegate = self
+            self.session = session
+            self.sleepSessionRequested = true
+            self.state = .active
+            self.isStarting = false
+            self.isScheduled = false
+            self.pendingRenewal = false
+            if self.sessionStartTime == nil {
+                self.sessionStartTime = Date()
+            }
+            WatchCueScheduler.shared.hasLiveSession = true
         }
     }
 }
