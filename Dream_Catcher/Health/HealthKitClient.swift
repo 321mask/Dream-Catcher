@@ -11,6 +11,7 @@ import HealthKit
 enum HealthKitClientError: Error {
     case healthDataUnavailable
     case authorizationDenied
+    case authorizationNotDetermined
 }
 
 final class HealthKitClient {
@@ -40,6 +41,8 @@ final class HealthKitClient {
     }
 
     func fetchSleepNights(lastNDays: Int, now: Date) async throws -> [SleepNight] {
+        try await ensureSleepReadAuthorizationIfNeeded()
+
         let start = Calendar.current.date(byAdding: .day, value: -lastNDays, to: now)!
         let predicate = HKQuery.predicateForSamples(withStart: start, end: now, options: .strictStartDate)
 
@@ -67,6 +70,38 @@ final class HealthKitClient {
             }
 
             store.execute(query)
+        }
+    }
+
+    private func ensureSleepReadAuthorizationIfNeeded() async throws {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw HealthKitClientError.healthDataUnavailable
+        }
+
+        let status = try await authorizationRequestStatus()
+        switch status {
+        case .shouldRequest:
+            try await requestAuthorization()
+        case .unnecessary:
+            return
+        case .unknown:
+            try await requestAuthorization()
+        @unknown default:
+            try await requestAuthorization()
+        }
+    }
+
+    private func authorizationRequestStatus() async throws -> HKAuthorizationRequestStatus {
+        let toRead: Set<HKObjectType> = [sleepType]
+
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<HKAuthorizationRequestStatus, Error>) in
+            store.getRequestStatusForAuthorization(toShare: [], read: toRead) { status, error in
+                if let error {
+                    cont.resume(throwing: error)
+                    return
+                }
+                cont.resume(returning: status)
+            }
         }
     }
 }

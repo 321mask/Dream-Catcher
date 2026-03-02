@@ -9,6 +9,7 @@ import Foundation
 import Observation
 import SwiftData
 import UIKit
+import HealthKit
 
 @Observable
 final class AppCoordinator {
@@ -117,7 +118,7 @@ final class AppCoordinator {
 
         } catch {
             await MainActor.run {
-                self.statusText = "Update failed: \(error.localizedDescription)"
+                self.statusText = self.nightlyUpdateErrorMessage(for: error)
             }
         }
     }
@@ -207,6 +208,31 @@ final class AppCoordinator {
     }
 
     // MARK: - Private
+
+    private func nightlyUpdateErrorMessage(for error: Error) -> String {
+        if let hkError = error as? HealthKitClientError {
+            switch hkError {
+            case .healthDataUnavailable:
+                return "Update failed: Health data is unavailable on this device."
+            case .authorizationDenied:
+                return "Update failed: Sleep permission denied. Please allow Health access and try again."
+            case .authorizationNotDetermined:
+                return "Update failed: Health authorization not determined. Please try again to grant access."
+            }
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == HKErrorDomain,
+           nsError.code == HKError.errorAuthorizationDenied.rawValue {
+            return "Update failed: Sleep permission denied. Please allow Health access and try again."
+        }
+
+        if nsError.localizedDescription == "Authorization not determined." {
+            return "Update failed: Health authorization not determined. Please try again to grant access."
+        }
+
+        return "Update failed: \(error.localizedDescription)"
+    }
 
     private func inferExpectedSleepStart(storedNights: [SleepNight], fallbackNow: Date) -> Date {
         let recent = storedNights.prefix(14)
