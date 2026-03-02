@@ -250,3 +250,9 @@ struct DashboardView: View {
     }
 }
 
+<<<<<<< Updated upstream
+=======
+#Preview{
+    DashboardView(coordinator: AppCoordinator())
+}
+>>>>>>> Stashed changes
