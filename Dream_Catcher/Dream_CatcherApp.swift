@@ -28,7 +28,7 @@ struct Dream_CatcherApp: App {
         WindowGroup {
             Group {
                 if hasSeenOnboarding {
-                    DashboardView(coordinator: coordinator)
+                    HomeView(coordinator: coordinator)
                 } else {
                     OnboardingView(coordinator: coordinator) {
                         hasSeenOnboarding = true
