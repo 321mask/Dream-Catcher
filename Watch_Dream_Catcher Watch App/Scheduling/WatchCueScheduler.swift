@@ -192,6 +192,46 @@ final class WatchCueScheduler: NSObject {
         }
     }
 
+    // MARK: - Test Cues
+
+    /// Schedule test cues at the given offsets (in seconds) from now.
+    /// Uses the same direct-delivery + notification-fallback path as real cues.
+    func scheduleTestCues(offsets: [TimeInterval]) {
+        let now = Date()
+        let dates = offsets.map { now.addingTimeInterval($0) }
+        guard !dates.isEmpty else { return }
+        scheduledFireDates = dates
+
+        // Schedule notification fallback (single window containing all test dates)
+        removePending { [weak self] in
+            guard let self else { return }
+            for (i, date) in dates.enumerated() {
+                let content = UNMutableNotificationContent()
+                content.categoryIdentifier = "REM_CUE"
+                content.title = ""
+                content.body = ""
+                content.sound = .default
+
+                let comps = Calendar.current.dateComponents(
+                    [.year, .month, .day, .hour, .minute, .second],
+                    from: date
+                )
+                let trigger = UNCalendarNotificationTrigger(
+                    dateMatching: comps, repeats: false
+                )
+                let id = "remcue.test.\(i).\(Int(date.timeIntervalSince1970))"
+                self.center.add(UNNotificationRequest(
+                    identifier: id, content: content, trigger: trigger
+                ))
+            }
+        }
+
+        // If session is live, also schedule direct haptic delivery
+        if hasLiveSession {
+            startDirectDelivery(fireDates: dates)
+        }
+    }
+
     // MARK: - Cleanup
 
     func removeAllScheduledCues() {

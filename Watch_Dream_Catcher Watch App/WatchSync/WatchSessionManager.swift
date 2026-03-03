@@ -170,6 +170,16 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
                 )
             }
 
+        // Scheduled test cues from iPhone — starts session + schedules haptic cues
+        case "scheduleTestCues":
+            if let offsets = payload["offsets"] as? [TimeInterval] {
+                // Start the extended runtime session if not already live
+                if let session = sleepSession, !session.isLive {
+                    session.start(source: .remotePhone)
+                }
+                WatchCueScheduler.shared.scheduleTestCues(offsets: offsets)
+            }
+
         // Haptic test from iPhone's CueTestingView
         case "testHaptic":
             if let pattern = payload["pattern"] as? String {
