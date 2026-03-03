@@ -81,6 +81,15 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         send(["command": "testHaptic", "pattern": pattern])
     }
 
+    /// Tell the Watch to start a WKExtendedRuntimeSession and schedule test
+    /// haptic cues at the given offsets (seconds from now).
+    func sendScheduleTestCues(offsets: [TimeInterval]) {
+        send([
+            "command": "scheduleTestCues",
+            "offsets": offsets
+        ])
+    }
+
     func sendStartSleepSession() {
         send(["command": Self.startSleepSession])
         publishSleepSessionState(isActive: true)

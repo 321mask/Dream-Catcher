@@ -19,6 +19,17 @@ struct DashboardView: View {
     @State private var showTraining = false
     @State private var sessionError: String?
     @State private var showHapticTester = false
+    @State private var testDelayIndex: Int = 2
+    @State private var testCueCount: Int = 3
+
+    private let testDelayOptions: [(label: String, seconds: TimeInterval)] = [
+        ("10s", 10),
+        ("30s", 30),
+        ("1m", 60),
+        ("2m", 120),
+        ("5m", 300),
+        ("10m", 600),
+    ]
 
     @MainActor
     private var lastUpdatedString: String {
@@ -76,10 +87,16 @@ struct DashboardView: View {
                         Task { await coordinator.runNightlyUpdate(modelContainer: container) }
                     }
 
-                    Button("Schedule test cues (5 minutes from now)") {
-                        Task {
-                            await scheduleTest()
+                    Picker("First cue in", selection: $testDelayIndex) {
+                        ForEach(0..<testDelayOptions.count, id: \.self) { i in
+                            Text(testDelayOptions[i].label).tag(i)
                         }
+                    }
+
+                    Stepper("Cues: \(testCueCount)", value: $testCueCount, in: 1...10)
+
+                    Button("Schedule test cues") {
+                        Task { await scheduleTest() }
                     }
 
                     Button {
@@ -229,16 +246,31 @@ struct DashboardView: View {
     }
 
     private func scheduleTest() async {
-        // Create two fake windows for quick device testing
-        let start = Date().addingTimeInterval(5 * 60)
-        let w1 = DateInterval(start: start, end: start.addingTimeInterval(20 * 60))
-        let w2 = DateInterval(start: start.addingTimeInterval(90 * 60), end: start.addingTimeInterval(110 * 60))
-        coordinator.nextWindows = [w1, w2]
+        let baseDelay = testDelayOptions[testDelayIndex].seconds
+        let spacing: TimeInterval = 30
+        let offsets = (0..<testCueCount).map { i in
+            baseDelay + TimeInterval(i) * spacing
+        }
+
+        // Build a single window that contains all test cues
+        let windowStart = Date().addingTimeInterval(baseDelay)
+        let windowEnd = Date().addingTimeInterval(offsets.last! + 60)
+        let window = DateInterval(start: windowStart, end: windowEnd)
+        coordinator.nextWindows = [window]
 
         do {
             try await CueScheduler().requestAuthorizationIfNeeded()
-            CueScheduler().replaceScheduledCues(for: [w1, w2], cuesPerWindow: 5, spacingSeconds: 120)
-            coordinator.statusText = "Test cues scheduled"
+            CueScheduler().replaceScheduledCues(
+                for: [window],
+                cuesPerWindow: testCueCount,
+                spacingSeconds: spacing
+            )
+
+            // Send to Watch for WKExtendedRuntimeSession direct haptic delivery
+            PhoneWatchSync.shared.sendScheduleTestCues(offsets: offsets)
+
+            let delayLabel = testDelayOptions[testDelayIndex].label
+            coordinator.statusText = "\(testCueCount) test cue\(testCueCount == 1 ? "" : "s") scheduled from \(delayLabel)"
         } catch {
             coordinator.statusText = "Notifications denied"
         }
