@@ -17,6 +17,7 @@ final class AppCoordinator {
     var lastUpdatedAt: Date?
     var nextWindows: [DateInterval] = []
     var lastCurve: [Double] = []
+    var watchCuesDeliveredTonight: Int = 0
 
     // MARK: - Sleep Session State
 
@@ -140,8 +141,11 @@ final class AppCoordinator {
     /// Begin the sleep session flow. Returns the phase to present.
     func beginSleepFlow(source: SleepControlSource = .local) throws {
         guard sleepPhase == .idle else { return }
+        watchCuesDeliveredTonight = 0
+
         if source == .local {
             PhoneWatchSync.shared.sendStartSleepSession()
+            scheduleKnownWindowsForActiveSession()
         }
 
         if needsCalibration {
@@ -210,10 +214,34 @@ final class AppCoordinator {
         sleepPhase = .idle
         statusText = "Idle"
         UIApplication.shared.isIdleTimerDisabled = false
+        watchCuesDeliveredTonight = 0
         return nightLog
     }
 
     // MARK: - Private
+
+    private func scheduleKnownWindowsForActiveSession() {
+        guard !nextWindows.isEmpty else { return }
+
+        PhoneWatchSync.shared.sendRemWindowsToWatch(
+            windows: nextWindows,
+            cuesPerWindow: 5,
+            spacingSeconds: 120
+        )
+
+        Task {
+            do {
+                try await cueScheduler.requestAuthorizationIfNeeded()
+                cueScheduler.replaceScheduledCues(
+                    for: nextWindows,
+                    cuesPerWindow: 5,
+                    spacingSeconds: 120
+                )
+            } catch {
+                // Keep session start resilient even if notifications are denied.
+            }
+        }
+    }
 
     private func nightlyUpdateErrorMessage(for error: Error) -> String {
         if let hkError = error as? HealthKitClientError {
@@ -270,11 +298,7 @@ extension AppCoordinator: PhoneSleepSessionControlling {
     }
 
     func handleWatchRequestedSleepStart() {
-        do {
-            try beginSleepFlow(source: .remoteWatch)
-        } catch {
-            statusText = "Watch start failed: \(error.localizedDescription)"
-        }
+        applyRemoteWatchSleepStart()
     }
 
     func handleWatchRequestedSleepStop() {
@@ -283,14 +307,27 @@ extension AppCoordinator: PhoneSleepSessionControlling {
 
     func applyWatchSessionState(isActive: Bool) {
         if isActive {
-            guard sleepPhase == .idle else { return }
-            do {
-                try beginSleepFlow(source: .remoteWatch)
-            } catch {
-                statusText = "Sync start failed: \(error.localizedDescription)"
-            }
+            applyRemoteWatchSleepStart()
         } else if sleepPhase != .idle {
             _ = endSleepSession(source: .remoteWatch)
         }
+    }
+
+    private func applyRemoteWatchSleepStart() {
+        guard sleepPhase == .idle else { return }
+
+        watchCuesDeliveredTonight = 0
+
+        if calibration != nil {
+            startNightMonitoring()
+        } else {
+            sleepPhase = .monitoring
+            statusText = "Monitoring sleep (watch session)"
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+    }
+
+    func handleWatchCueDelivered() {
+        watchCuesDeliveredTonight += 1
     }
 }
