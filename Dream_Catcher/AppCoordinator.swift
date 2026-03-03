@@ -56,6 +56,8 @@ final class AppCoordinator {
     let cuePlayer = LucidCuePlayer()
     let sleepFocusObserver = SleepFocusObserver()
 
+    private var isNightlyUpdateRunning = false
+
     init() {}
 
     // MARK: - Bootstrap
@@ -74,6 +76,10 @@ final class AppCoordinator {
     // MARK: - Nightly Update
 
     func runNightlyUpdate(modelContainer: ModelContainer, referenceNow: Date = .now) async {
+        guard !isNightlyUpdateRunning else { return }
+        isNightlyUpdateRunning = true
+        defer { isNightlyUpdateRunning = false }
+
         await MainActor.run { self.statusText = "Updating..." }
 
         let store = DataStore(modelContainer: modelContainer)
@@ -243,14 +249,18 @@ final class AppCoordinator {
             .sorted()
 
         let median = minutes[minutes.count / 2]
+        let calendar = Calendar.current
+        let todayCandidate = DateUtils.todayAt(minutesSinceMidnight: median, now: fallbackNow)
 
-        var candidate = DateUtils.todayAt(minutesSinceMidnight: median, now: fallbackNow)
-
-        if candidate <= fallbackNow {
-            candidate = Calendar.current.date(byAdding: .day, value: 1, to: candidate)!
+        guard
+            let yesterdayCandidate = calendar.date(byAdding: .day, value: -1, to: todayCandidate),
+            let tomorrowCandidate = calendar.date(byAdding: .day, value: 1, to: todayCandidate)
+        else {
+            return todayCandidate
         }
 
-        return candidate
+        let candidates = [yesterdayCandidate, todayCandidate, tomorrowCandidate]
+        return candidates.min(by: { abs($0.timeIntervalSince(fallbackNow)) < abs($1.timeIntervalSince(fallbackNow)) }) ?? todayCandidate
     }
 }
 

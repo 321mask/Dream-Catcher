@@ -92,7 +92,7 @@ struct DashboardView: View {
             .navigationTitle("LucidREM")
             .toolbar {
                 NavigationLink("Settings") {
-                    SettingsView()
+                    SettingsView(coordinator: coordinator)
                 }
             }
             .fullScreenCover(isPresented: $showCalibration, onDismiss: {

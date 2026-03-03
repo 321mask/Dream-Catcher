@@ -8,9 +8,12 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    
     let coordinator: AppCoordinator
+    var onFinished: (() -> Void)?
+
     @State private var currentPage = 0
+
+    @Environment(\.dismiss) private var dismiss
     
     let items = [
         ("moon.stars.fill", "Welcome", "Track and improve your sleep."),
@@ -37,9 +40,8 @@ struct OnboardingView: View {
                     // Skip Button
                     HStack {
                         Spacer()
-                        NavigationLink {
-                            DashboardView(coordinator: coordinator)
-                                .navigationBarBackButtonHidden(true)
+                        Button {
+                            finishOnboarding()
                         } label: {
                             Text("Skip")
                                 .foregroundColor(.white)
@@ -102,9 +104,8 @@ struct OnboardingView: View {
                         }
                         .padding(.bottom, 30)
                     } else {
-                        NavigationLink {
-                            DashboardView(coordinator: coordinator)
-                                .navigationBarBackButtonHidden(true)
+                        Button {
+                            finishOnboarding()
                         } label: {
                             Text("Get Started")
                                 .foregroundColor(.black)
@@ -120,7 +121,16 @@ struct OnboardingView: View {
             }
         }
     }
+
+    private func finishOnboarding() {
+        if let onFinished {
+            onFinished()
+        } else {
+            dismiss()
+        }
+    }
 }
+
 #Preview {
     OnboardingView(coordinator: AppCoordinator())
 }

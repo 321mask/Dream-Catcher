@@ -10,8 +10,12 @@ import SwiftData
 
 @main
 struct Dream_CatcherApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     @State private var coordinator: AppCoordinator
+    @State private var modelContainer = AppContainer.makeModelContainer()
 
     init() {
         let coordinator = AppCoordinator()
@@ -22,8 +26,26 @@ struct Dream_CatcherApp: App {
     
     var body: some Scene {
         WindowGroup {
-            OnboardingView(coordinator: coordinator)
+            Group {
+                if hasSeenOnboarding {
+                    DashboardView(coordinator: coordinator)
+                } else {
+                    OnboardingView(coordinator: coordinator) {
+                        hasSeenOnboarding = true
+                    }
+                }
+            }
+            .task {
+                await coordinator.bootstrapIfNeeded()
+                await coordinator.runNightlyUpdate(modelContainer: modelContainer)
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                Task {
+                    await coordinator.runNightlyUpdate(modelContainer: modelContainer)
+                }
+            }
         }
-        .modelContainer(AppContainer.makeModelContainer())
+        .modelContainer(modelContainer)
     }
 }
