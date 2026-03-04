@@ -14,6 +14,7 @@ protocol PhoneSleepSessionControlling: AnyObject {
     func handleWatchRequestedSleepStart()
     func handleWatchRequestedSleepStop()
     func applyWatchSessionState(isActive: Bool)
+    func handleWatchCueDelivered()
 }
 
 @Observable
@@ -36,6 +37,7 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     static let stopSleepSession = "stopSleepSession"
     static let syncSleepSessionState = "syncSleepSessionState"
     static let syncSleepSessionUpdatedAt = "syncSleepSessionUpdatedAt"
+    static let cueDelivered = "cueDelivered"
 
     /// Set by AppCoordinator so Watch signals can reach the REMCueScheduler.
     weak var remCueScheduler: REMCueScheduler?
@@ -108,11 +110,9 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     }
 
     func refreshSleepSessionStateFromController() {
-        guard let sleepSessionController else { return }
-        if WCSession.isSupported() {
-            handleIncoming(WCSession.default.receivedApplicationContext)
-        }
-        publishSleepSessionState(isActive: sleepSessionController.isSleepSessionOngoing)
+        guard sleepSessionController != nil else { return }
+        guard WCSession.isSupported() else { return }
+        handleIncoming(WCSession.default.receivedApplicationContext)
     }
 
     // MARK: - Sending windows (unchanged)
@@ -146,7 +146,6 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async { [weak self] in
             self?.isReachable = session.isReachable
-            self?.handleIncoming(session.receivedApplicationContext)
             self?.refreshSleepSessionStateFromController()
         }
     }
@@ -201,6 +200,8 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
                 self?.sleepSessionController?.handleWatchRequestedSleepStart()
             case Self.stopSleepSession:
                 self?.sleepSessionController?.handleWatchRequestedSleepStop()
+            case Self.cueDelivered:
+                self?.sleepSessionController?.handleWatchCueDelivered()
             default:
                 break
             }

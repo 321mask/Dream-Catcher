@@ -20,6 +20,12 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Navigation") {
+                NavigationLink("Open Main Page") {
+                    DashboardView(coordinator: coordinator)
+                }
+            }
+
             Section("Help") {
                 Button("View Onboarding") {
                     showOnboarding = true

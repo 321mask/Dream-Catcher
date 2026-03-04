@@ -116,6 +116,7 @@ final class WatchCueScheduler: NSObject {
             let item = DispatchWorkItem { [weak self] in
                 guard let self, self.isDeliveringDirectly, !self.isPaused else { return }
                 self.hapticEngine.playCue()
+                WatchSessionManager.shared.notifyCueDeliveredToPhone()
             }
             directDispatchItems.append(item)
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
@@ -197,36 +198,48 @@ final class WatchCueScheduler: NSObject {
     /// Schedule test cues at the given offsets (in seconds) from now.
     /// Uses the same direct-delivery + notification-fallback path as real cues.
     func scheduleTestCues(offsets: [TimeInterval]) {
+        let sanitized = offsets
+            .map { max(1.0, $0) }
+            .sorted()
+
+        guard !sanitized.isEmpty else { return }
+
+        isPaused = false
+        pauseResumeWork?.cancel()
+
         let now = Date()
-        let dates = offsets.map { now.addingTimeInterval($0) }
-        guard !dates.isEmpty else { return }
+        let dates = sanitized.map { now.addingTimeInterval($0) }
         scheduledFireDates = dates
 
-        // Schedule notification fallback (single window containing all test dates)
-        removePending { [weak self] in
-            guard let self else { return }
-            for (i, date) in dates.enumerated() {
-                let content = UNMutableNotificationContent()
-                content.categoryIdentifier = "REM_CUE"
-                content.title = ""
-                content.body = ""
-                content.sound = .default
+        Task {
+            try? await requestAuthorizationIfNeeded()
 
-                let comps = Calendar.current.dateComponents(
-                    [.year, .month, .day, .hour, .minute, .second],
-                    from: date
-                )
-                let trigger = UNCalendarNotificationTrigger(
-                    dateMatching: comps, repeats: false
-                )
-                let id = "remcue.test.\(i).\(Int(date.timeIntervalSince1970))"
-                self.center.add(UNNotificationRequest(
-                    identifier: id, content: content, trigger: trigger
-                ))
+            // Schedule notification fallback using relative triggers for near-term test cues.
+            removePending { [weak self] in
+                guard let self else { return }
+                for (i, offset) in sanitized.enumerated() {
+                    let content = UNMutableNotificationContent()
+                    content.categoryIdentifier = "REM_CUE"
+                    content.title = ""
+                    content.body = ""
+                    content.sound = .default
+
+                    let trigger = UNTimeIntervalNotificationTrigger(
+                        timeInterval: offset,
+                        repeats: false
+                    )
+                    let id = "remcue.test.\(i).\(Int(now.timeIntervalSince1970))"
+                    self.center.add(UNNotificationRequest(
+                        identifier: id,
+                        content: content,
+                        trigger: trigger
+                    ))
+                }
             }
         }
 
-        // If session is live, also schedule direct haptic delivery
+        // If session is live, also schedule direct haptic delivery.
+        // If not live yet, hasLiveSession didSet will start delivery once active.
         if hasLiveSession {
             startDirectDelivery(fireDates: dates)
         }
