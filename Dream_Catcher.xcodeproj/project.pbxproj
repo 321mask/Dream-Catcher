@@ -272,6 +272,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 426X87W599;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -336,6 +337,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 426X87W599;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -365,6 +367,8 @@
 				CODE_SIGN_ENTITLEMENTS = Dream_Catcher/Dream_Catcher.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				DEVELOPMENT_TEAM = 426X87W599;
 				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = TJNHB2R4K6;
 				ENABLE_PREVIEWS = YES;
@@ -384,7 +388,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.usmannsv.Dream-Catcher";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -452,6 +456,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				DEVELOPMENT_TEAM = 426X87W599;
 				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = TJNHB2R4K6;
 				ENABLE_PREVIEWS = YES;
@@ -459,13 +465,13 @@
 				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Watch_Dream_Catcher;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.usmannsv.Dream-Catcher";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher.watchkitapp";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.usmannsv.Dream-Catcher.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -495,7 +501,7 @@
 				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Watch_Dream_Catcher;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.usmannsv.Dream-Catcher";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

@@ -70,8 +70,17 @@ struct DashboardView: View {
                 }
 
                 Section("Curve") {
-                    NavigationLink("View curve") {
-                        CurveView(curve: currentCurve)
+                    if let lastNight = nights.first {
+                        NavigationLink("View curve") {
+                            CurveView(
+                                sleepStart: lastNight.sleepStart,
+                                sleepEnd: lastNight.sleepEnd,
+                                curve: currentCurve
+                            )
+                        }
+                    } else {
+                        Text("No sleep data yet.")
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -236,6 +245,26 @@ struct DashboardView: View {
             sessionError = error.localizedDescription
             coordinator.sleepPhase = .idle
         }
+    }
+
+    private var currentSleepStart: Date {
+        if let firstWindow = coordinator.nextWindows.first {
+            return firstWindow.start
+        }
+        if let lastNight = nights.first {
+            return lastNight.sleepStart
+        }
+        return Date()
+    }
+
+    private var currentSleepEnd: Date {
+        if let firstWindow = coordinator.nextWindows.first {
+            return firstWindow.end
+        }
+        if let lastNight = nights.first {
+            return lastNight.sleepEnd
+        }
+        return Date()
     }
 
     private var currentCurve: [Double] {
