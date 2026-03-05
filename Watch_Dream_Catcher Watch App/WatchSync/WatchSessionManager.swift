@@ -88,6 +88,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         publishSleepSessionState(isActive: false)
     }
 
+    func notifyCueDeliveredToPhone() {
+        sendCommandToPhone("cueDelivered")
+    }
+
     func publishSleepSessionState(isActive: Bool) {
         publishApplicationContext([
             Self.syncSleepSessionState: isActive,
@@ -260,18 +264,11 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         lastReceivedWindows = windows
         status = "Received \(windows.count) windows"
 
-        Task {
-            do {
-                try await WatchCueScheduler.shared.requestAuthorizationIfNeeded()
-                WatchCueScheduler.shared.replaceScheduledCues(
-                    for: windows,
-                    cuesPerWindow: cuesPerWindow,
-                    spacingSeconds: spacingSeconds
-                )
-                await MainActor.run { self.status = "Cues scheduled" }
-            } catch {
-                await MainActor.run { self.status = "Notif denied" }
-            }
-        }
+        WatchCueScheduler.shared.replaceScheduledCues(
+            for: windows,
+            cuesPerWindow: cuesPerWindow,
+            spacingSeconds: spacingSeconds
+        )
+        status = "Cues scheduled"
     }
 }

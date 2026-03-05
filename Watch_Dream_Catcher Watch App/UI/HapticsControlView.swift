@@ -198,7 +198,7 @@ struct HapticsControlView: View {
                     .padding(.horizontal, 4)
             }
 
-            Text("Schedules haptic cues via direct delivery (session) + notification fallback. Start a session first for direct haptics.")
+            Text("Schedules haptic cues via session.notifyUser() on the WKExtendedRuntimeSession. Start a session first.")
                 .font(.system(size: 10))
                 .foregroundColor(.white.opacity(0.3))
                 .multilineTextAlignment(.center)
@@ -250,9 +250,9 @@ struct HapticsControlView: View {
         scheduledStatus = "\(cueCount) cue\(cueCount == 1 ? "" : "s") scheduled: \(firstLabel)–\(lastLabel) from now"
 
         if sleepSession.isLive {
-            scheduledStatus! += "\nDirect delivery active"
+            scheduledStatus! += "\nSession active — notifyUser delivery"
         } else {
-            scheduledStatus! += "\nNotification fallback only"
+            scheduledStatus! += "\nNo session — start one first"
         }
     }
 }
