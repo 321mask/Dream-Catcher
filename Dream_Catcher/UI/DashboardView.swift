@@ -70,8 +70,17 @@ struct DashboardView: View {
                 }
 
                 Section("Curve") {
-                    NavigationLink("View curve") {
-                        CurveView(curve: currentCurve)
+                    if let lastNight = nights.first {
+                        NavigationLink("View curve") {
+                            CurveView(
+                                sleepStart: lastNight.sleepStart,
+                                sleepEnd: lastNight.sleepEnd,
+                                curve: currentCurve
+                            )
+                        }
+                    } else {
+                        Text("No sleep data yet.")
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -109,7 +118,7 @@ struct DashboardView: View {
             .navigationTitle("LucidREM")
             .toolbar {
                 NavigationLink("Settings") {
-                    SettingsView()
+                    SettingsView(coordinator: coordinator)
                 }
             }
             .fullScreenCover(isPresented: $showCalibration, onDismiss: {
@@ -209,15 +218,13 @@ struct DashboardView: View {
                     Label("Monitoring sleep", systemImage: "bed.double.fill")
                         .foregroundStyle(.green)
 
-                    if let scheduler = coordinator.remScheduler {
-                        HStack {
-                            Text("Cues delivered")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text("\(scheduler.cuesDeliveredTonight)")
-                        }
-                        .font(.footnote)
+                    HStack {
+                        Text("Cues delivered")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(coordinator.watchCuesDeliveredTonight)")
                     }
+                    .font(.footnote)
                 }
 
                 Button(role: .destructive) {
@@ -240,6 +247,26 @@ struct DashboardView: View {
         }
     }
 
+    private var currentSleepStart: Date {
+        if let firstWindow = coordinator.nextWindows.first {
+            return firstWindow.start
+        }
+        if let lastNight = nights.first {
+            return lastNight.sleepStart
+        }
+        return Date()
+    }
+
+    private var currentSleepEnd: Date {
+        if let firstWindow = coordinator.nextWindows.first {
+            return firstWindow.end
+        }
+        if let lastNight = nights.first {
+            return lastNight.sleepEnd
+        }
+        return Date()
+    }
+
     private var currentCurve: [Double] {
         if !coordinator.lastCurve.isEmpty { return coordinator.lastCurve }
         return modelStates.first?.probBins ?? []
@@ -258,6 +285,10 @@ struct DashboardView: View {
         let window = DateInterval(start: windowStart, end: windowEnd)
         coordinator.nextWindows = [window]
 
+        // Ensure session is active first, then schedule cues.
+        PhoneWatchSync.shared.sendStartSleepSession()
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+
         do {
             try await CueScheduler().requestAuthorizationIfNeeded()
             CueScheduler().replaceScheduledCues(
@@ -266,7 +297,7 @@ struct DashboardView: View {
                 spacingSeconds: spacing
             )
 
-            // Send to Watch for WKExtendedRuntimeSession direct haptic delivery
+            // Send to Watch after session activation window.
             PhoneWatchSync.shared.sendScheduleTestCues(offsets: offsets)
 
             let delayLabel = testDelayOptions[testDelayIndex].label

@@ -21,6 +21,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     static let shared = WatchSessionManager()
     static let syncSleepSessionState = "syncSleepSessionState"
     static let syncSleepSessionUpdatedAt = "syncSleepSessionUpdatedAt"
+    static let cueDelivered = "cueDelivered"
 
     var lastReceivedWindows: [DateInterval] = []
     var status: String = "Waiting..."
@@ -53,7 +54,6 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
             self.status = (activationState == .activated) ? "Connected" : "Not active"
-            self.handle(payload: session.receivedApplicationContext)
             self.refreshSleepSessionStateFromSession()
         }
     }
@@ -100,9 +100,8 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     }
 
     func refreshSleepSessionStateFromSession() {
-        guard let sleepSession else { return }
+        guard sleepSession != nil else { return }
         handle(payload: WCSession.default.receivedApplicationContext)
-        publishSleepSessionState(isActive: sleepSession.isSessionRequested)
     }
 
     private func sendCommandToPhone(_ command: String) {
@@ -176,13 +175,15 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
         // Scheduled test cues from iPhone — starts session + schedules haptic cues
         case "scheduleTestCues":
-            if let offsets = payload["offsets"] as? [TimeInterval] {
-                // Start the extended runtime session if not already live
-                if let session = sleepSession, !session.isLive {
-                    session.start(source: .remotePhone)
-                }
-                WatchCueScheduler.shared.scheduleTestCues(offsets: offsets)
+            let offsets = decodeOffsets(from: payload)
+            guard !offsets.isEmpty else { break }
+
+            // Start the extended runtime session if not already live
+            if let session = sleepSession, !session.isLive {
+                session.start(source: .remotePhone)
             }
+
+            WatchCueScheduler.shared.scheduleTestCues(offsets: offsets)
 
         // Haptic test from iPhone's CueTestingView
         case "testHaptic":
@@ -225,6 +226,19 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         } else if sleepSession.isSessionRequested {
             sleepSession.stop(source: .remotePhone)
         }
+    }
+
+    private func decodeOffsets(from payload: [String: Any]) -> [TimeInterval] {
+        if let offsets = payload["offsets"] as? [TimeInterval] {
+            return offsets
+        }
+        if let offsets = payload["offsets"] as? [Double] {
+            return offsets
+        }
+        if let offsets = payload["offsets"] as? [NSNumber] {
+            return offsets.map { $0.doubleValue }
+        }
+        return []
     }
 
     private func publishApplicationContext(_ values: [String: Any]) {

@@ -8,11 +8,27 @@
 import SwiftUI
 
 struct SettingsView: View {
+    let coordinator: AppCoordinator
+
+    @State private var showOnboarding = false
+
     var body: some View {
         Form {
             Section("Testing") {
                 NavigationLink("Cue Testing") {
                     CueTestingView()
+                }
+            }
+
+            Section("Navigation") {
+                NavigationLink("Open Main Page") {
+                    DashboardView(coordinator: coordinator)
+                }
+            }
+
+            Section("Help") {
+                Button("View Onboarding") {
+                    showOnboarding = true
                 }
             }
 
@@ -28,5 +44,10 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView(coordinator: coordinator) {
+                showOnboarding = false
+            }
+        }
     }
 }
