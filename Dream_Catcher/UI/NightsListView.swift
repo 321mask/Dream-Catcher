@@ -31,6 +31,7 @@ struct NightsListView: View {
                 }
             }
         }
+        .appBackground()
         .navigationTitle("Sleep Nights")
     }
 }

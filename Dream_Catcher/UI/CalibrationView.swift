@@ -1,9 +1,10 @@
 //  CalibrationView.swift
 //  Dream_Catcher
 //
-//  Volume calibration wizard UI.
-//  User lies in sleeping position -> taps Play -> taps "Louder" until
-//  they can barely hear it -> taps "I can hear it" -> threshold saved.
+//  Volume calibration UI.
+//  User lies in sleeping position, drags the slider until they can barely
+//  hear the cue, then taps Save.  Each slider movement plays the cue at
+//  the new volume so the user gets immediate feedback.
 //
 //  Dark UI matching the training screen aesthetic.
 
@@ -16,13 +17,12 @@ struct CalibrationView: View {
     var onComplete: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
-    @State private var hasPlayed = false
     @State private var showSuccess = false
-    @State private var pulseScale: CGFloat = 1.0
+    @State private var didSetupPlayer = false
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            AppBackground()
 
             if showSuccess {
                 successView
@@ -31,6 +31,21 @@ struct CalibrationView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            if !wizard.playerIsReady {
+                do {
+                    try wizard.ensurePlayerReady()
+                    didSetupPlayer = true
+                } catch {
+                    print("CalibrationView: failed to setup audio – \(error)")
+                }
+            }
+        }
+        .onDisappear {
+            if didSetupPlayer {
+                wizard.teardownPlayer()
+            }
+        }
     }
 
     // MARK: - Main Content
@@ -53,7 +68,7 @@ struct CalibrationView: View {
             Spacer()
                 .frame(height: 40)
 
-            Text("Lie in your sleeping position.\nTap Play to hear your dream signal.\nTap Louder until you can barely hear it.")
+            Text("Lie in your sleeping position.\nDrag the slider until you can\nbarely hear the sound.")
                 .font(.system(size: 15, weight: .light))
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
@@ -63,12 +78,25 @@ struct CalibrationView: View {
             Spacer()
                 .frame(height: 48)
 
-            volumeBar
+            volumeSlider
 
             Spacer()
                 .frame(height: 48)
 
-            controlButtons
+            // Save button
+            Button {
+                calibration = wizard.saveCalibration()
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showSuccess = true
+                }
+            } label: {
+                Text("Save")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 160, height: 50)
+                    .background(Color(hex: "6366F1").opacity(0.8))
+                    .cornerRadius(25)
+            }
 
             Spacer()
                 .frame(height: 16)
@@ -84,99 +112,37 @@ struct CalibrationView: View {
         }
     }
 
-    // MARK: - Volume Bar
+    // MARK: - Volume Slider
 
-    private var volumeBar: some View {
-        VStack(spacing: 8) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.white.opacity(0.06))
-                        .frame(height: 6)
+    private var volumeSlider: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "speaker.fill")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.3))
 
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: "6366F1").opacity(0.6),
-                                    Color(hex: "818CF8").opacity(0.8)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(
-                            width: geo.size.width * stepFraction,
-                            height: 6
-                        )
-                        .animation(.easeOut(duration: 0.3), value: wizard.currentStep)
+                Slider(
+                    value: $wizard.volume,
+                    in: VolumeCalibrationWizard.minVolume...VolumeCalibrationWizard.maxVolume
+                ) {
+                    EmptyView()
+                } onEditingChanged: { editing in
+                    if !editing {
+                        // User released the slider — play the cue once at the chosen volume.
+                        wizard.playAtCurrentVolume()
+                    }
                 }
-            }
-            .frame(height: 6)
-            .padding(.horizontal, 48)
+                .tint(Color(hex: "818CF8"))
 
-            Text("Step \(wizard.currentStep + 1) of 20")
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .padding(.horizontal, 36)
+
+            Text("\(Int(wizard.volume * 100))%")
                 .font(.system(size: 11, weight: .light, design: .monospaced))
                 .foregroundColor(.white.opacity(0.15))
-        }
-    }
-
-    // MARK: - Controls
-
-    private var controlButtons: some View {
-        HStack(spacing: 16) {
-            Button {
-                _ = wizard.playCurrentStep()
-                hasPlayed = true
-                pulseAnimation()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: hasPlayed ? "arrow.clockwise" : "play.fill")
-                        .font(.system(size: 14))
-                    Text(hasPlayed ? "Replay" : "Play")
-                        .font(.system(size: 15, weight: .medium))
-                }
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 100, height: 44)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(22)
-            }
-
-            Button {
-                if wizard.nextStep() {
-                    _ = wizard.playCurrentStep()
-                    hasPlayed = true
-                    pulseAnimation()
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "speaker.plus")
-                        .font(.system(size: 14))
-                    Text("Louder")
-                        .font(.system(size: 15, weight: .medium))
-                }
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 100, height: 44)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(22)
-            }
-            .disabled(!hasPlayed)
-            .opacity(hasPlayed ? 1 : 0.3)
-
-            Button {
-                calibration = wizard.userHeardCue()
-                withAnimation(.easeOut(duration: 0.5)) {
-                    showSuccess = true
-                }
-            } label: {
-                Text("I hear it")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 100, height: 44)
-                    .background(Color(hex: "6366F1").opacity(hasPlayed ? 0.8 : 0.2))
-                    .cornerRadius(22)
-            }
-            .disabled(!hasPlayed)
         }
     }
 
@@ -194,7 +160,7 @@ struct CalibrationView: View {
                 .font(.system(size: 20, weight: .light, design: .serif))
                 .foregroundColor(.white.opacity(0.8))
 
-            Text("Your dream signal is set to the perfect volume --\njust at the edge of hearing.")
+            Text("Your dream signal is set to the perfect volume —\njust at the edge of hearing.")
                 .font(.system(size: 14, weight: .light))
                 .multilineTextAlignment(.center)
                 .foregroundColor(.white.opacity(0.4))
@@ -219,16 +185,5 @@ struct CalibrationView: View {
             .padding(.horizontal, 48)
             .padding(.bottom, 48)
         }
-    }
-
-    // MARK: - Helpers
-
-    private var stepFraction: CGFloat {
-        CGFloat(wizard.currentStep) / 19.0
-    }
-
-    private func pulseAnimation() {
-        withAnimation(.easeOut(duration: 0.15)) { pulseScale = 1.1 }
-        withAnimation(.easeIn(duration: 0.3).delay(0.15)) { pulseScale = 1.0 }
     }
 }

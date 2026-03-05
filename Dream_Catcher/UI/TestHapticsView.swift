@@ -3,6 +3,7 @@ import SwiftUI
 struct TestHapticsView: View {
     // 0 = light (.click), 1 = medium (.directionUp), 2 = strong (.notification)
     @State private var strength: Double = 1.0
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -45,7 +46,13 @@ struct TestHapticsView: View {
                     Text("Watch must be reachable. Open the Watch app to enable live messaging.")
                 }
             }
+            .appBackground()
             .navigationTitle("Test Haptics")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 

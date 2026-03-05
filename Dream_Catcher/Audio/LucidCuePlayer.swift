@@ -46,11 +46,13 @@ final class LucidCuePlayer {
     // MARK: - Playback
 
     /// Play the cue at exact volume. Used during calibration.
+    /// Stops any currently playing cue first so buffers don't pile up.
     func playCue(atVolume volume: Float) {
         guard isReady, let buffer = cueBuffer else { return }
+        playerNode.stop()
         playerNode.volume = clamp(volume)
         playerNode.scheduleBuffer(buffer, at: nil, options: [])
-        if !playerNode.isPlaying { playerNode.play() }
+        playerNode.play()
     }
 
     /// Play with a smooth ramp from silence to target volume.

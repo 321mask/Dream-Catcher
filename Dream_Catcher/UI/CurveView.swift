@@ -45,6 +45,13 @@ struct CurveView: View {
         data.map(\.percentage).min() ?? 0
     }
     
+    /// The threshold at or above which a bar is considered "top 2".
+    private var top2Threshold: Double {
+        let sorted = data.map(\.percentage).sorted(by: >)
+        guard sorted.count >= 2 else { return maxValue }
+        return sorted[1]
+    }
+    
     private var dynamicMaxY: Double {
         max(maxValue * 1.25, 5)
     }
@@ -55,6 +62,7 @@ struct CurveView: View {
         List {
             chartSection
                     }
+        .appBackground()
         .navigationTitle("REM Curve")
     }
 }
@@ -88,7 +96,7 @@ extension CurveView {
                 )
                 .cornerRadius(6)
                 .foregroundStyle(
-                    point.percentage == maxValue ? Color.green : Color.blue
+                    point.percentage >= top2Threshold ? Color.green : Color.blue
                 )
             }
             
