@@ -5,9 +5,12 @@
 //  Add as a NavigationLink in your SettingsView.
 
 import SwiftUI
+import SwiftData
 import WatchConnectivity
 
 struct CueTestingView: View {
+
+    let coordinator: AppCoordinator
 
     // MARK: - Audio Presets
 
@@ -61,9 +64,20 @@ struct CueTestingView: View {
     @State private var lastPlayedHaptic: String?
     @State private var customVolume: Float = 0.10
     @State private var showCustomSlider = false
-    @State private var repeatCount: Int = 1
-    @State private var repeatInterval: Double = 2.0
+    @State private var testDelayIndex: Int = 2
+    @State private var testCueCount: Int = 3
     @State private var player = TestCuePlayer()
+
+    @Environment(\.modelContext) private var modelContext
+
+    private let testDelayOptions: [(label: String, seconds: TimeInterval)] = [
+        ("10s", 10),
+        ("30s", 30),
+        ("1m", 60),
+        ("2m", 120),
+        ("5m", 300),
+        ("10m", 600),
+    ]
 
     // Observe centralized WCSession reachability
     @State private var sync = PhoneWatchSync.shared
@@ -73,11 +87,12 @@ struct CueTestingView: View {
             audioSection
             hapticSection
             combinedSection
-            repeatSection
+            schedulingSection
             if showCustomSlider {
                 customVolumeSection
             }
         }
+        .appBackground()
         .navigationTitle("Cue Testing")
         .onAppear {
             try? player.setup()
@@ -285,42 +300,30 @@ struct CueTestingView: View {
         }
     }
 
-    // MARK: - Repeat Section
+    // MARK: - Scheduling Section
 
-    private var repeatSection: some View {
+    private var schedulingSection: some View {
         Section {
-            Stepper("Repeat: \(repeatCount)x", value: $repeatCount, in: 1...10)
-                .font(.system(size: 14))
-
-            HStack {
-                Text("Interval")
-                    .font(.system(size: 14))
-                Spacer()
-                Picker("", selection: $repeatInterval) {
-                    Text("2s").tag(2.0)
-                    Text("5s").tag(5.0)
-                    Text("15s").tag(15.0)
-                    Text("30s").tag(30.0)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 200)
+            Button("Run nightly update now") {
+                let container = modelContext.container
+                Task { await coordinator.runNightlyUpdate(modelContainer: container) }
             }
 
-            Button {
-                playRepeated()
-            } label: {
-                HStack {
-                    Image(systemName: "repeat")
-                        .foregroundColor(.indigo)
-                        .frame(width: 24)
-                    Text("Play \(repeatCount)x at \(formattedInterval) intervals")
-                        .font(.system(size: 14, weight: .medium))
+            Picker("First cue in", selection: $testDelayIndex) {
+                ForEach(0..<testDelayOptions.count, id: \.self) { i in
+                    Text(testDelayOptions[i].label).tag(i)
                 }
+            }
+
+            Stepper("Cues: \(testCueCount)", value: $testCueCount, in: 1...10)
+
+            Button("Schedule test cues") {
+                Task { await scheduleTest() }
             }
         } header: {
-            Text("Repeat Test")
+            Text("Schedule Test Cues")
         } footer: {
-            Text("Simulates REM cue delivery rhythm. Set repeat count and interval, then lie in sleeping position to test if cues enter your awareness without waking you.")
+            Text("Starts a Watch session and schedules cues at the selected delay. Also schedules iPhone notification cues.")
         }
     }
 
@@ -344,10 +347,6 @@ struct CueTestingView: View {
         }
     }
 
-    private var formattedInterval: String {
-        repeatInterval < 60 ? "\(Int(repeatInterval))s" : "\(Int(repeatInterval / 60))m"
-    }
-
     // MARK: - Actions
 
     private func playAudio(_ preset: AudioPreset) {
@@ -365,16 +364,35 @@ struct CueTestingView: View {
         PhoneWatchSync.shared.sendTestHaptic(pattern: hapticPattern)
     }
 
-    private func playRepeated() {
-        let volume = showCustomSlider ? customVolume : Float(0.15)
-        for i in 0..<repeatCount {
-            let delay = Double(i) * repeatInterval
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                player.playCue(atVolume: volume)
-                if PhoneWatchSync.shared.isReachable {
-                    PhoneWatchSync.shared.sendTestHaptic(pattern: "triple_ascending")
-                }
-            }
+    private func scheduleTest() async {
+        let baseDelay = testDelayOptions[testDelayIndex].seconds
+        let spacing: TimeInterval = 30
+        let offsets = (0..<testCueCount).map { i in
+            baseDelay + TimeInterval(i) * spacing
+        }
+
+        let windowStart = Date().addingTimeInterval(baseDelay)
+        let windowEnd = Date().addingTimeInterval(offsets.last! + 60)
+        let window = DateInterval(start: windowStart, end: windowEnd)
+        coordinator.nextWindows = [window]
+
+        PhoneWatchSync.shared.sendStartSleepSession()
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+
+        do {
+            try await CueScheduler().requestAuthorizationIfNeeded()
+            CueScheduler().replaceScheduledCues(
+                for: [window],
+                cuesPerWindow: testCueCount,
+                spacingSeconds: spacing
+            )
+
+            PhoneWatchSync.shared.sendScheduleTestCues(offsets: offsets)
+
+            let delayLabel = testDelayOptions[testDelayIndex].label
+            coordinator.statusText = "\(testCueCount) test cue\(testCueCount == 1 ? "" : "s") scheduled from \(delayLabel)"
+        } catch {
+            coordinator.statusText = "Notifications denied"
         }
     }
 }

@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct HomeView: View {
 
@@ -12,20 +12,12 @@ struct HomeView: View {
     @State private var showTraining = false
     @State private var sessionError: String?
     @State private var showGraph = false
-    
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.62, green: 0.66, blue: 0.95),
-                        Color(red: 0.98, green: 0.60, blue: 0.65)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                AppBackground()
 
                 VStack {
 
@@ -42,21 +34,14 @@ struct HomeView: View {
                         handleMainButtonTap()
                     } label: {
                         Circle()
-                            .fill(Color.white.opacity(0.24))
+                            .fill(AppTheme.powerButtonColor)
                             .frame(width: 220, height: 220)
                             .overlay {
                                 Group {
-                                    if isSessionActive {
-                                        Image("playOn")
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 188, height: 188)
-                                    } else {
-                                        Image("play")
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 188, height: 188)
-                                    }
+                                    Image(powerButtonImageName)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 188, height: 188)
                                 }
                                 .clipShape(Circle())
                             }
@@ -76,10 +61,23 @@ struct HomeView: View {
                     }
                     .padding(.top, 20)
 
-                    Text("Cues delivered: \(coordinator.watchCuesDeliveredTonight)")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.95))
-                        .padding(.top, 22)
+                    // Status info
+                    VStack(spacing: 6) {
+                        Text(coordinator.statusText)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.85))
+
+                        Text("Updated: \(lastUpdatedString)")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.6))
+
+                        Text(
+                            "Cues delivered: \(coordinator.watchCuesDeliveredTonight)"
+                        )
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(.top, 18)
 
                     if let sessionError {
                         Text(sessionError)
@@ -87,7 +85,6 @@ struct HomeView: View {
                             .foregroundStyle(.red)
                             .padding(.top, 8)
                     }
-
                     Spacer()
                 }
             }
@@ -104,9 +101,7 @@ struct HomeView: View {
 
             // GRAPH MODAL
             .sheet(isPresented: $showGraph) {
-
                 NavigationStack {
-
                     if let lastNight = nights.first {
                         CurveView(
                             sleepStart: lastNight.sleepStart,
@@ -116,29 +111,23 @@ struct HomeView: View {
                     } else {
                         Text("No sleep data yet.")
                     }
-
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showGraph = false
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.title3)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
+                .presentationDragIndicator(.visible)
                 .presentationDetents([.medium])
             }
             // CALIBRATION
-            .fullScreenCover(isPresented: $showCalibration, onDismiss: {
-                if coordinator.sleepPhase == .calibrating {
-                    coordinator.sleepPhase = .idle
+            .fullScreenCover(
+                isPresented: $showCalibration,
+                onDismiss: {
+                    if coordinator.sleepPhase == .calibrating {
+                        coordinator.sleepPhase = .idle
+                    }
                 }
-            }) {
+            ) {
                 CalibrationView(
-                    wizard: VolumeCalibrationWizard(player: coordinator.cuePlayer),
+                    wizard: VolumeCalibrationWizard(
+                        player: coordinator.cuePlayer
+                    ),
                     calibration: $coordinator.calibration,
                     onComplete: {
                         showCalibration = false
@@ -171,10 +160,23 @@ struct HomeView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
+        .tint(AppTheme.accent)
+    }
+
+    @MainActor
+    private var lastUpdatedString: String {
+        guard let d = coordinator.lastUpdatedAt else { return "—" }
+        return DateUtils.pretty(d)
     }
 
     private var isSessionActive: Bool {
         coordinator.sleepPhase != .idle
+    }
+
+    private var powerButtonImageName: String {
+        let prefix = colorScheme == .dark ? "button_dark" : "button_light"
+        return isSessionActive ? "\(prefix)_on" : "\(prefix)_off"
     }
 
     private var nextCueText: String {
@@ -184,10 +186,13 @@ struct HomeView: View {
             [window.start, window.end]
         }
 
-        if let nextCue = upcomingDates
+        if let nextCue =
+            upcomingDates
             .filter({ $0 > now })
-            .min() {
-            return "Next cue: \(nextCue.formatted(date: .omitted, time: .shortened))"
+            .min()
+        {
+            return
+                "Next cue: \(nextCue.formatted(date: .omitted, time: .shortened))"
         }
 
         return "Next cue: --"

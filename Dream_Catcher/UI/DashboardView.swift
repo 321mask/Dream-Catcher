@@ -18,56 +18,11 @@ struct DashboardView: View {
     @State private var showCalibration = false
     @State private var showTraining = false
     @State private var sessionError: String?
-    @State private var showHapticTester = false
-    @State private var testDelayIndex: Int = 2
-    @State private var testCueCount: Int = 3
-
-    private let testDelayOptions: [(label: String, seconds: TimeInterval)] = [
-        ("10s", 10),
-        ("30s", 30),
-        ("1m", 60),
-        ("2m", 120),
-        ("5m", 300),
-        ("10m", 600),
-    ]
-
-    @MainActor
-    private var lastUpdatedString: String {
-        guard let d = coordinator.lastUpdatedAt else { return "—" }
-        return DateUtils.pretty(d)
-    }
 
     var body: some View {
         NavigationStack {
             List {
                 sleepSessionSection
-
-                Section("Status") {
-                    InfoRow(title: "Status", value: coordinator.statusText)
-                    InfoRow(
-                        title: "Last updated",
-                        value: lastUpdatedString
-                    )
-                    InfoRow(title: "Stored nights", value: "\(nights.count)")
-                }
-
-                Section("Next REM windows") {
-                    if coordinator.nextWindows.isEmpty {
-                        Text("No windows yet. Run update.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(Array(coordinator.nextWindows.enumerated()), id: \.offset) { i, w in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Window \(i + 1)")
-                                    .font(.headline)
-                                Text("\(DateUtils.pretty(w.start)) → \(DateUtils.pretty(w.end))")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
 
                 Section("Curve") {
                     if let lastNight = nights.first {
@@ -84,37 +39,9 @@ struct DashboardView: View {
                     }
                 }
 
-                Section("Data") {
-                    NavigationLink("Nights") {
-                        NightsListView(nights: nights)
-                    }
-                }
 
-                Section {
-                    Button("Run nightly update now") {
-                        let container = modelContext.container
-                        Task { await coordinator.runNightlyUpdate(modelContainer: container) }
-                    }
-
-                    Picker("First cue in", selection: $testDelayIndex) {
-                        ForEach(0..<testDelayOptions.count, id: \.self) { i in
-                            Text(testDelayOptions[i].label).tag(i)
-                        }
-                    }
-
-                    Stepper("Cues: \(testCueCount)", value: $testCueCount, in: 1...10)
-
-                    Button("Schedule test cues") {
-                        Task { await scheduleTest() }
-                    }
-
-                    Button {
-                        showHapticTester = true
-                    } label: {
-                        Label("Test Haptics", systemImage: "applewatch")
-                    }
-                }
             }
+            .appBackground()
             .navigationTitle("LucidREM")
             .toolbar {
                 NavigationLink("Settings") {
@@ -142,9 +69,6 @@ struct DashboardView: View {
                         coordinator.trainingCompleted()
                     }
                 }
-            }
-            .sheet(isPresented: $showHapticTester) {
-                TestHapticsView()
             }
             .onChange(of: coordinator.sleepPhase) { _, newPhase in
                 switch newPhase {
@@ -272,40 +196,7 @@ struct DashboardView: View {
         return modelStates.first?.probBins ?? []
     }
 
-    private func scheduleTest() async {
-        let baseDelay = testDelayOptions[testDelayIndex].seconds
-        let spacing: TimeInterval = 30
-        let offsets = (0..<testCueCount).map { i in
-            baseDelay + TimeInterval(i) * spacing
-        }
 
-        // Build a single window that contains all test cues
-        let windowStart = Date().addingTimeInterval(baseDelay)
-        let windowEnd = Date().addingTimeInterval(offsets.last! + 60)
-        let window = DateInterval(start: windowStart, end: windowEnd)
-        coordinator.nextWindows = [window]
-
-        // Ensure session is active first, then schedule cues.
-        PhoneWatchSync.shared.sendStartSleepSession()
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
-
-        do {
-            try await CueScheduler().requestAuthorizationIfNeeded()
-            CueScheduler().replaceScheduledCues(
-                for: [window],
-                cuesPerWindow: testCueCount,
-                spacingSeconds: spacing
-            )
-
-            // Send to Watch after session activation window.
-            PhoneWatchSync.shared.sendScheduleTestCues(offsets: offsets)
-
-            let delayLabel = testDelayOptions[testDelayIndex].label
-            coordinator.statusText = "\(testCueCount) test cue\(testCueCount == 1 ? "" : "s") scheduled from \(delayLabel)"
-        } catch {
-            coordinator.statusText = "Notifications denied"
-        }
-    }
 }
 
 

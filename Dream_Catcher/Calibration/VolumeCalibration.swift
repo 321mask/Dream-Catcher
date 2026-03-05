@@ -55,57 +55,45 @@ struct VolumeCalibration: Codable {
 @Observable
 final class VolumeCalibrationWizard {
 
-    var currentStep: Int = 0
-    var isComplete = false
+    /// Current software volume (0.0–1.0), driven by the slider.
+    var volume: Float = 0.05
 
     private let player: LucidCuePlayer
-    private let totalSteps = 20
-    private let startVolume: Float = 0.01
-    private let endVolume: Float = 0.40
+    static let minVolume: Float = 0.01
+    static let maxVolume: Float = 0.50
 
     init(player: LucidCuePlayer) {
         self.player = player
     }
 
-    func playCurrentStep() -> Float {
-        let volume = volumeForStep(currentStep)
-        player.playCue(atVolume: volume)
-        return volume
-    }
+    var playerIsReady: Bool { player.isReady }
 
-    @discardableResult
-    func nextStep() -> Bool {
-        currentStep += 1
-        if currentStep >= totalSteps {
-            isComplete = true
-            return false
+    func ensurePlayerReady() throws {
+        if !player.isReady {
+            try player.setup()
         }
-        return true
     }
 
-    func userHeardCue() -> VolumeCalibration {
-        let threshold = volumeForStep(currentStep)
+    func teardownPlayer() {
+        player.teardown()
+    }
+
+    /// Play the cue at the current volume. Called when slider value changes.
+    func playAtCurrentVolume() {
+        player.playCue(atVolume: volume)
+    }
+
+    /// Save the current volume as the perceptual threshold.
+    func saveCalibration() -> VolumeCalibration {
         let systemVol = AVAudioSession.sharedInstance().outputVolume
 
         let cal = VolumeCalibration(
-            perceptualThreshold: threshold,
+            perceptualThreshold: volume,
             systemVolumeAtCalibration: systemVol,
             calibrationDate: Date(),
             inSleepEnvironment: true
         )
         cal.save()
         return cal
-    }
-
-    func reset() {
-        currentStep = 0
-        isComplete = false
-    }
-
-    // MARK: - Private
-
-    private func volumeForStep(_ step: Int) -> Float {
-        let fraction = Float(step) / Float(totalSteps - 1)
-        return startVolume + fraction * (endVolume - startVolume)
     }
 }

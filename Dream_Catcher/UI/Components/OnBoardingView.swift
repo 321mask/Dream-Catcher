@@ -25,15 +25,7 @@ struct OnboardingView: View {
         NavigationStack{
             ZStack {
                 
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.62, green: 0.66, blue: 0.95),
-                        Color(red: 0.98, green: 0.60, blue: 0.65)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                AppBackground()
                 
                 VStack {
                     
@@ -120,6 +112,7 @@ struct OnboardingView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func finishOnboarding() {
