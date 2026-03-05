@@ -54,8 +54,7 @@ struct CurveView: View {
     var body: some View {
         List {
             chartSection
-            binsSection
-        }
+                    }
         .navigationTitle("REM Curve")
     }
 }
@@ -67,21 +66,21 @@ struct CurveView: View {
 extension CurveView {
     
     private var chartSection: some View {
-        Section("Chart") {
+        Section() {
             if data.isEmpty {
                 Text("No REM data available.")
                     .foregroundStyle(.secondary)
             } else {
                 chartView
-              
-                statsView
+                
+                
             }
         }
     }
     
     private var chartView: some View {
         Chart {
-
+            
             ForEach(data) { point in
                 BarMark(
                     x: .value("Time", point.time),
@@ -92,76 +91,43 @@ extension CurveView {
                     point.percentage == maxValue ? Color.green : Color.blue
                 )
             }
-
+            
         }
         .frame(height: 260)
-
+        
         // Force chart to start exactly at sleep start
         .chartXScale(domain: sleepStart...sleepEnd)
-
+        
         .chartYScale(domain: 0...dynamicMaxY)
-
+        
         // Y axis
         .chartYAxis {
             AxisMarks(position: .leading) { value in
                 AxisGridLine()
                     .foregroundStyle(.gray.opacity(0.3))
-
+                
                 AxisValueLabel("\(Int(value.as(Double.self) ?? 0))%")
             }
         }
-
+        
         // X axis (first label will be sleepStart)
         .chartXAxis {
             AxisMarks(values: [sleepStart]) { value in
                 AxisValueLabel(format: .dateTime.hour().minute())
             }
-
+            
             AxisMarks(values: .stride(by: .minute, count: 30)) { value in
                 AxisGridLine()
                     .foregroundStyle(.gray.opacity(0.2))
-
+                
                 AxisValueLabel(format: .dateTime.hour().minute())
             }
         }
     }
     // Sleep start / end labels
     
-        private var statsView: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Max REM: \(String(format: "%.1f", maxValue))%")
-                .foregroundStyle(.green)
-            
-            Text("Min REM: \(String(format: "%.1f", minValue))%")
-                .foregroundStyle(.secondary)
-        }
-        .font(.footnote)
-        .padding(.top, 8)
-    }
-}
-
-////////////////////////////////////////////////////////////
-// MARK: - Bins Section
-////////////////////////////////////////////////////////////
-
-extension CurveView {
     
-    private var binsSection: some View {
-        Section("Bins") {
-            if curve.isEmpty {
-                Text("—")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(curve.enumerated()), id: \.offset) { idx, value in
-                    HStack {
-                        Text("Bin \(idx)")
-                        Spacer()
-                        Text(String(format: "%.3f", value))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-    }
+    ////////////////////////////////////////////////////////////
+    // MARK: - Bins Section
+    ////////////////////////////////////////////////////////////
 }

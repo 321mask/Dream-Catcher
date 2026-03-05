@@ -1,11 +1,18 @@
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
+
     @Bindable var coordinator: AppCoordinator
+
+    @Query(sort: \SleepNight.sleepStart, order: .reverse)
+    private var nights: [SleepNight]
 
     @State private var showCalibration = false
     @State private var showTraining = false
     @State private var sessionError: String?
+    @State private var showGraph = false
+    
 
     var body: some View {
         NavigationStack {
@@ -21,6 +28,7 @@ struct HomeView: View {
                 .ignoresSafeArea()
 
                 VStack {
+
                     Spacer()
                         .frame(height: 70)
 
@@ -29,6 +37,7 @@ struct HomeView: View {
                         .foregroundStyle(.white)
                         .padding(.bottom, 28)
 
+                    // POWER BUTTON
                     Button {
                         handleMainButtonTap()
                     } label: {
@@ -42,19 +51,30 @@ struct HomeView: View {
                                             .resizable()
                                             .scaledToFill()
                                             .frame(width: 188, height: 188)
-                                            .transition(.opacity)
                                     } else {
                                         Image("play")
                                             .resizable()
                                             .scaledToFill()
                                             .frame(width: 188, height: 188)
-                                            .transition(.opacity)
                                     }
                                 }
                                 .clipShape(Circle())
-                                .animation(.easeInOut(duration: 0.35), value: isSessionActive)
                             }
                     }
+
+                    // VIEW GRAPH BUTTON
+                    Button {
+                        showGraph = true
+                    } label: {
+                        Label("View Graph", systemImage: "chart.bar")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 10)
+                            .background(.white.opacity(0.25))
+                            .clipShape(Capsule())
+                    }
+                    .padding(.top, 20)
 
                     Text("Cues delivered: \(coordinator.watchCuesDeliveredTonight)")
                         .font(.system(size: 16, weight: .medium))
@@ -81,6 +101,37 @@ struct HomeView: View {
                     }
                 }
             }
+
+            // GRAPH MODAL
+            .sheet(isPresented: $showGraph) {
+
+                NavigationStack {
+
+                    if let lastNight = nights.first {
+                        CurveView(
+                            sleepStart: lastNight.sleepStart,
+                            sleepEnd: lastNight.sleepEnd,
+                            curve: coordinator.lastCurve
+                        )
+                    } else {
+                        Text("No sleep data yet.")
+                    }
+
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showGraph = false
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
+            // CALIBRATION
             .fullScreenCover(isPresented: $showCalibration, onDismiss: {
                 if coordinator.sleepPhase == .calibrating {
                     coordinator.sleepPhase = .idle
@@ -95,6 +146,8 @@ struct HomeView: View {
                     }
                 )
             }
+
+            // TRAINING
             .fullScreenCover(isPresented: $showTraining) {
                 if let session = coordinator.trainingSession {
                     PreSleepTrainingView(session: session) {
@@ -102,6 +155,7 @@ struct HomeView: View {
                     }
                 }
             }
+
             .onChange(of: coordinator.sleepPhase) { _, newPhase in
                 switch newPhase {
                 case .calibrating:
@@ -125,12 +179,17 @@ struct HomeView: View {
 
     private var nextCueText: String {
         let now = Date()
-        if let nextCue = coordinator.nextWindows
-            .flatMap({ [$0.start, $0.end] })
+
+        let upcomingDates = coordinator.nextWindows.flatMap { window in
+            [window.start, window.end]
+        }
+
+        if let nextCue = upcomingDates
             .filter({ $0 > now })
             .min() {
             return "Next cue: \(nextCue.formatted(date: .omitted, time: .shortened))"
         }
+
         return "Next cue: --"
     }
 
