@@ -68,6 +68,9 @@ final class WatchSleepSession: NSObject {
         isStarting || isScheduled || pendingRenewal || pendingStop
     }
 
+    /// Exposed so WatchCueScheduler can call notifyUser() for background haptics.
+    var currentSession: WKExtendedRuntimeSession? { session }
+
     // MARK: - Private
 
     private var session: WKExtendedRuntimeSession?
