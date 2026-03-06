@@ -77,7 +77,7 @@ struct CueTestingView: View {
         ("2m", 120),
         ("5m", 300),
         ("10m", 600),
-        ("31m", 1860)
+        ("61m", 3660)
     ]
 
     // Observe centralized WCSession reachability
