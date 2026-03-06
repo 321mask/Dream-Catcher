@@ -198,7 +198,7 @@ struct HapticsControlView: View {
                     .padding(.horizontal, 4)
             }
 
-            Text("Schedules haptic cues via session.notifyUser() on the WKExtendedRuntimeSession. Start a session first.")
+            Text("Schedules haptic cues via WKInterfaceDevice during an extended runtime session. Start a session first.")
                 .font(.system(size: 10))
                 .foregroundColor(.white.opacity(0.3))
                 .multilineTextAlignment(.center)
@@ -250,7 +250,7 @@ struct HapticsControlView: View {
         scheduledStatus = "\(cueCount) cue\(cueCount == 1 ? "" : "s") scheduled: \(firstLabel)–\(lastLabel) from now"
 
         if sleepSession.isLive {
-            scheduledStatus! += "\nSession active — notifyUser delivery"
+            scheduledStatus! += "\nSession active — haptic delivery ready"
         } else {
             scheduledStatus! += "\nNo session — start one first"
         }

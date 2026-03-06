@@ -1,22 +1,18 @@
 //  WatchCueScheduler.swift
 //  Watch_Dream_Catcher Watch App
 //
-//  Delivers haptic cues via WKExtendedRuntimeSession (smart alarm).
+//  Delivers haptic cues during an active WKExtendedRuntimeSession
+//  (physical-therapy mode).
 //
-//  Smart alarm sessions run in the background. The ONLY way to play
-//  haptics from a background alarm session is:
-//    session.notifyUser(hapticType:repeatHandler:)
-//
-//  WKInterfaceDevice.play() is silently ignored in the background,
-//  so it is NOT used for cue delivery.
+//  Haptics are played via WKInterfaceDevice.play(), which works in the
+//  background during an active extended runtime session.
 //
 //  Flow:
 //    - Cue fire dates are stored in scheduledFireDates.
 //    - When hasLiveSession becomes true, DispatchWorkItems are scheduled
 //      on the main queue for each fire date.
-//    - Each DispatchWorkItem calls deliverCue() which triggers
-//      session.notifyUser() on the live WKExtendedRuntimeSession.
-//    - The repeatHandler plays a short ascending pattern, then stops.
+//    - Each DispatchWorkItem calls deliverCue() which plays a three-tap
+//      ascending haptic pattern via WKInterfaceDevice.
 
 import Foundation
 import WatchKit
@@ -32,6 +28,7 @@ final class WatchCueScheduler {
     var hasLiveSession = false {
         didSet {
             if hasLiveSession && !oldValue {
+                cuesDelivered = 0
                 if !scheduledFireDates.isEmpty {
                     startDirectDelivery(fireDates: scheduledFireDates)
                 }
@@ -53,9 +50,6 @@ final class WatchCueScheduler {
 
     private(set) var scheduledFireDates: [Date] = []
     private var directDispatchItems: [DispatchWorkItem] = []
-
-    /// Number of haptic taps per cue delivery (the ascending three-tap pattern).
-    private let tapsPerCue = 3
 
     // MARK: - Init
 
@@ -131,34 +125,24 @@ final class WatchCueScheduler {
         directDispatchItems.removeAll()
     }
 
-    // MARK: - Cue Delivery via notifyUser
+    // MARK: - Cue Delivery via WKInterfaceDevice
 
+    /// Ascending three-tap haptic pattern: click → directionUp → notification.
+    /// Matches the iPhone audio cue rhythm (225ms between taps).
     private func deliverCue() {
-        let session = WatchSleepSession.shared
-        guard session.isLive, let runtimeSession = session.currentSession else {
-            // Foreground-only fallback — will be silent in background
-            WKInterfaceDevice.current().play(.notification)
-            return
+        let device = WKInterfaceDevice.current()
+
+        // Tap 1: light click (immediate)
+        device.play(.click)
+
+        // Tap 2: medium at 225ms
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.225) {
+            device.play(.directionUp)
         }
 
-        // Use notifyUser for background-capable haptics.
-        // Play tapsPerCue taps with a short interval, then return 0 to stop.
-        var remaining = tapsPerCue
-
-        // Haptic types for ascending pattern: click -> directionUp -> notification
-        let hapticSequence: [WKHapticType] = [.click, .directionUp, .notification]
-
-        runtimeSession.notifyUser(hapticType: hapticSequence[0]) { outHapticType in
-            remaining -= 1
-            if remaining <= 0 {
-                return 0
-            }
-            let index = self.tapsPerCue - remaining
-            if index < hapticSequence.count {
-                outHapticType.pointee = hapticSequence[index]
-            }
-            // 225ms between taps to match the audio cue rhythm
-            return 0.225
+        // Tap 3: strong at 450ms
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.450) {
+            device.play(.notification)
         }
 
         cuesDelivered += 1
