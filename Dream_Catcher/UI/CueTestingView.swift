@@ -380,21 +380,10 @@ struct CueTestingView: View {
         PhoneWatchSync.shared.sendStartSleepSession()
         try? await Task.sleep(nanoseconds: 2_000_000_000)
 
-        do {
-            try await CueScheduler().requestAuthorizationIfNeeded()
-            CueScheduler().replaceScheduledCues(
-                for: [window],
-                cuesPerWindow: testCueCount,
-                spacingSeconds: spacing
-            )
+        PhoneWatchSync.shared.sendScheduleTestCues(offsets: offsets)
 
-            PhoneWatchSync.shared.sendScheduleTestCues(offsets: offsets)
-
-            let delayLabel = testDelayOptions[testDelayIndex].label
-            coordinator.statusText = "\(testCueCount) test cue\(testCueCount == 1 ? "" : "s") scheduled from \(delayLabel)"
-        } catch {
-            coordinator.statusText = "Notifications denied"
-        }
+        let delayLabel = testDelayOptions[testDelayIndex].label
+        coordinator.statusText = "\(testCueCount) test cue\(testCueCount == 1 ? "" : "s") scheduled from \(delayLabel)"
     }
 }
 

@@ -53,7 +53,6 @@ final class AppCoordinator {
     private let healthClient = HealthKitClient()
     private let analyzer = RemCurveAnalyzer()
     private let windowSelector = RemWindowSelector()
-    private let cueScheduler = CueScheduler()
     let cuePlayer = LucidCuePlayer()
     let sleepFocusObserver = SleepFocusObserver()
 
@@ -112,9 +111,6 @@ final class AppCoordinator {
                 cuesPerWindow: 5,
                 spacingSeconds: 120
             )
-
-            try await cueScheduler.requestAuthorizationIfNeeded()
-            cueScheduler.replaceScheduledCues(for: windows, cuesPerWindow: 5, spacingSeconds: 120)
 
             await MainActor.run {
                 self.lastCurve = curve
@@ -228,19 +224,6 @@ final class AppCoordinator {
             cuesPerWindow: 5,
             spacingSeconds: 120
         )
-
-        Task {
-            do {
-                try await cueScheduler.requestAuthorizationIfNeeded()
-                cueScheduler.replaceScheduledCues(
-                    for: nextWindows,
-                    cuesPerWindow: 5,
-                    spacingSeconds: 120
-                )
-            } catch {
-                // Keep session start resilient even if notifications are denied.
-            }
-        }
     }
 
     private func nightlyUpdateErrorMessage(for error: Error) -> String {

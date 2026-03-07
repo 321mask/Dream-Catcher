@@ -228,7 +228,6 @@ final class WatchSleepSession: NSObject {
         }
 
         state = .renewing
-        isStarting = true
         pendingRenewal = true
 
         s.invalidate()
