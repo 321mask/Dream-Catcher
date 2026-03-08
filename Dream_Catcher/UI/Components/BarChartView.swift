@@ -96,10 +96,11 @@ struct RemBarChartView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                AxisMarks(values: .automatic(desiredCount: 5)) { value in
                     AxisGridLine()
                     AxisTick()
-                    AxisValueLabel(format: .dateTime.hour().minute())
+                    AxisValueLabel(format: .dateTime.hour())
+                        .font(.caption2)
                 }
             }
             .chartPlotStyle { plot in
