@@ -8,12 +8,22 @@ import SwiftUI
 // MARK: - Theme Constants
 
 enum AppTheme {
-    /// The app-wide gradient background (top to bottom).
-    static let backgroundGradient = LinearGradient(
+    /// Dark-mode gradient background (top to bottom).
+    static let darkGradient = LinearGradient(
         stops: [
             .init(color: Color(hex: "0F0D31"), location: 0.0),
             .init(color: Color(hex: "2E1567"), location: 0.50),
             .init(color: Color(hex: "81336E"), location: 0.89),
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    /// Light-mode gradient background (top to bottom).
+    static let lightGradient = LinearGradient(
+        colors: [
+            Color(hex: "9EA8F2"),
+            Color(hex: "FA99A6"),
         ],
         startPoint: .top,
         endPoint: .bottom
@@ -31,8 +41,10 @@ enum AppTheme {
 /// Full-screen gradient background. Apply with `.background { AppBackground() }` or
 /// wrap content in a ZStack.
 struct AppBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        AppTheme.backgroundGradient
+        (colorScheme == .dark ? AppTheme.darkGradient : AppTheme.lightGradient)
             .ignoresSafeArea()
     }
 }
@@ -40,12 +52,11 @@ struct AppBackground: View {
 // MARK: - View Modifier
 
 extension View {
-    /// Applies the app gradient background, transparent List/Form rows, and dark color scheme.
+    /// Applies the app gradient background and transparent List/Form rows.
     func appBackground() -> some View {
         self
             .scrollContentBackground(.hidden)
             .background { AppBackground() }
-            .preferredColorScheme(.dark)
             .tint(AppTheme.accent)
     }
 }
