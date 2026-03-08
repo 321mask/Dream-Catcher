@@ -287,11 +287,10 @@ extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
         ensureMain {
             guard extendedRuntimeSession === self.session else { return }
             self.state = .expiringSoon
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + self.renewalLeadTime
-            ) {
-                [weak self] in self?.renewSession()
-            }
+            // Renew immediately — don't delay, or the system may expire
+            // the session before pendingRenewal is set, causing it to
+            // fall through to the non-renewal expired branch.
+            self.renewSession()
         }
     }
 
@@ -313,7 +312,12 @@ extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
                 case .expired:
                     if self.pendingStop {
                         self.finishStopped()
-                    } else if self.pendingRenewal {
+                    } else if self.pendingRenewal || self.sleepSessionRequested {
+                        // Ensure renewal proceeds even if the system expired the
+                        // session before renewSession() had a chance to run.
+                        self.pendingRenewal = true
+                        self.isStarting = false
+                        self.state = .renewing
                         DispatchQueue.main.asyncAfter(
                             deadline: .now() + self.postInvalidateCooldown
                         ) {
