@@ -201,16 +201,9 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
                 UserDefaults.standard.set(value, forKey: "hapticStrength")
             }
 
-        // NEW: Play one tap at the saved strength immediately
+        // Play the ascending pattern at saved strength (repetitions)
         case "playSavedStrength":
-            let saved = UserDefaults.standard.integer(forKey: "hapticStrength")
-            let type: WKHapticType
-            switch saved {
-            case 0: type = .click
-            case 2: type = .notification
-            default: type = .directionUp
-            }
-            WKInterfaceDevice.current().play(type)
+            WatchHapticCueEngine().playCue()
 
         default:
             break

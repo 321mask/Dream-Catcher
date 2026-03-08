@@ -128,21 +128,35 @@ final class WatchCueScheduler {
     // MARK: - Cue Delivery via WKInterfaceDevice
 
     /// Ascending three-tap haptic pattern: click → directionUp → notification.
-    /// Matches the iPhone audio cue rhythm (225ms between taps).
+    /// Matches the TLR audio cue rhythm (225ms between taps).
+    /// The user-chosen strength (0/1/2) controls how many times the
+    /// pattern repeats (1×, 2×, 3×), not the haptic type.
     private func deliverCue() {
         let device = WKInterfaceDevice.current()
+        let saved = UserDefaults.standard.integer(forKey: "hapticStrength")
+        let repetitions = saved + 1  // 0→1, 1→2, 2→3
 
-        // Tap 1: light click (immediate)
-        device.play(.click)
+        let patternDuration: TimeInterval = 0.650  // 450ms last tap + ~200ms settle
+        for rep in 0..<repetitions {
+            let base = Double(rep) * patternDuration
 
-        // Tap 2: medium at 225ms
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.225) {
-            device.play(.directionUp)
-        }
+            let tap1 = base
+            let tap2 = base + 0.225
+            let tap3 = base + 0.450
 
-        // Tap 3: strong at 450ms
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.450) {
-            device.play(.notification)
+            if tap1 == 0 {
+                device.play(.click)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + tap1) {
+                    device.play(.click)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tap2) {
+                device.play(.directionUp)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tap3) {
+                device.play(.notification)
+            }
         }
 
         cuesDelivered += 1

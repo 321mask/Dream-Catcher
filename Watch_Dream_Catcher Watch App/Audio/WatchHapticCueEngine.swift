@@ -16,21 +16,34 @@ import WatchKit
 
 final class WatchHapticCueEngine {
 
-    /// Play the full three-tap ascending cue.
-    /// Call from WatchCueScheduler when receiving "playHaptic" from iPhone,
-    /// or directly when the Watch is delivering cues autonomously.
+    /// Play the ascending TLR cue pattern (click → directionUp → notification).
+    /// The user-chosen strength (0/1/2) controls how many times the pattern
+    /// repeats (1×, 2×, 3×), preserving the correct frequency progression.
     func playCue() {
         let device = WKInterfaceDevice.current()
+        let saved = UserDefaults.standard.integer(forKey: "hapticStrength")
+        let repetitions = saved + 1  // 0→1, 1→2, 2→3
 
-        for step in LucidCue.hapticPattern {
-            let wkType = mapType(step.intensity)
+        let patternDuration: TimeInterval = 0.650
+        for rep in 0..<repetitions {
+            let base = Double(rep) * patternDuration
 
-            if step.delay == 0 {
-                device.play(wkType)
+            let tap1 = base
+            let tap2 = base + 0.225
+            let tap3 = base + 0.450
+
+            if tap1 == 0 {
+                device.play(.click)
             } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + step.delay) {
-                    device.play(wkType)
+                DispatchQueue.main.asyncAfter(deadline: .now() + tap1) {
+                    device.play(.click)
                 }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tap2) {
+                device.play(.directionUp)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tap3) {
+                device.play(.notification)
             }
         }
     }

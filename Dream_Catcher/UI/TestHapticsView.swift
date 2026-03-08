@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct TestHapticsView: View {
-    // 0 = light (.click), 1 = medium (.directionUp), 2 = strong (.notification)
-    @State private var strength: Double = 1.0
+    // 0 = 1× pattern, 1 = 2× pattern, 2 = 3× pattern
+    @AppStorage("hapticStrength") private var strength: Double = 1.0
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -21,6 +21,9 @@ struct TestHapticsView: View {
                         }
                         Slider(value: $strength, in: 0...2, step: 1)
                             .tint(.purple)
+                            .onChange(of: strength) { _, newValue in
+                                PhoneWatchSync.shared.send(["command": "setHapticStrength", "value": Int(newValue)])
+                            }
 
                         HStack {
                             Text("Selected:")
@@ -58,14 +61,13 @@ struct TestHapticsView: View {
 
     private func label(for level: Int) -> String {
         switch level {
-        case 0: return "Light"
-        case 2: return "Strong"
-        default: return "Medium"
+        case 0: return "Light (1× pattern)"
+        case 2: return "Strong (3× pattern)"
+        default: return "Medium (2× pattern)"
         }
     }
 
     private func sendToWatch(level: Int) {
-        // Persist the chosen strength on the watch, then play it immediately.
         PhoneWatchSync.shared.send(["command": "setHapticStrength", "value": level])
         PhoneWatchSync.shared.send(["command": "playSavedStrength"])
     }

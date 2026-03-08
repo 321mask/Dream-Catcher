@@ -72,26 +72,44 @@ struct HapticStrengthTestView: View {
 
     private func label(for value: Int) -> String {
         switch value {
-        case 0: return "Light"
-        case 2: return "Strong"
-        default: return "Medium"
+        case 0: return "Light (1×)"
+        case 2: return "Strong (3×)"
+        default: return "Medium (2×)"
         }
     }
 
     private func playLocally() {
         isPlaying = true
-        let type: WKHapticType
-        switch strength {
-        case 0: type = .click           // light
-        case 2: type = .notification    // strong
-        default: type = .directionUp    // medium
+
+        let repetitions = strength + 1  // 0→1, 1→2, 2→3
+        let device = WKInterfaceDevice.current()
+        let patternDuration: TimeInterval = 0.650
+
+        for rep in 0..<repetitions {
+            let base = Double(rep) * patternDuration
+            let tap1 = base
+            let tap2 = base + 0.225
+            let tap3 = base + 0.450
+
+            if tap1 == 0 {
+                device.play(.click)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + tap1) {
+                    device.play(.click)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tap2) {
+                device.play(.directionUp)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tap3) {
+                device.play(.notification)
+            }
         }
 
-        WKInterfaceDevice.current().play(type)
         lastPlayedAt = Date()
 
-        // Brief UI busy state for feedback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        let totalDuration = Double(repetitions) * patternDuration
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
             isPlaying = false
         }
     }
