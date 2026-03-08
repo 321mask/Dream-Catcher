@@ -37,15 +37,22 @@ struct Dream_CatcherApp: App {
             }
             .task {
                 await coordinator.bootstrapIfNeeded()
-                await coordinator.runNightlyUpdate(modelContainer: modelContainer)
+                await runNightlyUpdateIfNeeded()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
                 Task {
-                    await coordinator.runNightlyUpdate(modelContainer: modelContainer)
+                    await runNightlyUpdateIfNeeded()
                 }
             }
         }
         .modelContainer(modelContainer)
+    }
+
+    private func runNightlyUpdateIfNeeded() async {
+        let context = ModelContext(modelContainer)
+        let lastUpdated = DailyUpdatePolicy.readLastUpdatedAt(modelContext: context)
+        guard DailyUpdatePolicy.shouldRunNow(lastUpdatedAt: lastUpdated) else { return }
+        await coordinator.runNightlyUpdate(modelContainer: modelContainer)
     }
 }
