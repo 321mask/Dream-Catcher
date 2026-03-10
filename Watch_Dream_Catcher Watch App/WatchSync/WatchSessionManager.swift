@@ -25,6 +25,8 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     var lastReceivedWindows: [DateInterval] = []
     var status: String = "Waiting..."
+    private var lastAppliedSleepSessionState: Bool?
+    private var lastAppliedSleepSessionUpdatedAt: TimeInterval = 0
 
     /// Set externally by the Watch app entry point so we can
     /// forward Sleep Focus and session commands to it.
@@ -121,7 +123,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     private func handle(payload: [String: Any]) {
         if let isActive = payload[Self.syncSleepSessionState] as? Bool {
-            applyPhoneSessionState(isActive: isActive)
+            let updatedAt = payload[Self.syncSleepSessionUpdatedAt] as? TimeInterval ?? 0
+            if shouldApplySleepSessionState(isActive: isActive, updatedAt: updatedAt) {
+                applyPhoneSessionState(isActive: isActive)
+            }
         }
 
         // Check for command-based messages first
@@ -277,5 +282,18 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             spacingSeconds: spacingSeconds
         )
         status = "Cues scheduled"
+    }
+
+    private func shouldApplySleepSessionState(isActive: Bool, updatedAt: TimeInterval) -> Bool {
+        if updatedAt > 0 {
+            guard updatedAt > lastAppliedSleepSessionUpdatedAt else { return false }
+            lastAppliedSleepSessionUpdatedAt = updatedAt
+            lastAppliedSleepSessionState = isActive
+            return true
+        }
+
+        guard lastAppliedSleepSessionState != isActive else { return false }
+        lastAppliedSleepSessionState = isActive
+        return true
     }
 }

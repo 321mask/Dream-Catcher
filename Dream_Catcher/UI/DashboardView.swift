@@ -110,10 +110,10 @@ struct DashboardView: View {
                         Spacer()
                         if calibration.needsRecalibration {
                             Text("Stale")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(.primary)
                         } else {
                             Text("OK")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .font(.footnote)
@@ -126,7 +126,7 @@ struct DashboardView: View {
                 if let err = sessionError {
                     Text(err)
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.secondary)
                 }
 
             case .calibrating:
@@ -135,12 +135,12 @@ struct DashboardView: View {
 
             case .training:
                 Label("Training in progress...", systemImage: "brain.head.profile")
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(.primary)
 
             case .monitoring:
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Monitoring sleep", systemImage: "bed.double.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.primary)
 
                     HStack {
                         Text("Cues delivered")

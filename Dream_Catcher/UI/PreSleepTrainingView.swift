@@ -18,12 +18,17 @@ struct PreSleepTrainingView: View {
     var session: PreSleepTrainingSession
     var onTrainingCompleted: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     // Animation state
     @State private var ringScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.0
     @State private var textOpacity: Double = 0.0
     @State private var buttonsDimmed = false
+
+    private var chromeColor: Color {
+        colorScheme == .dark ? .white : Color.black
+    }
 
     var body: some View {
         ZStack {
@@ -44,9 +49,6 @@ struct PreSleepTrainingView: View {
                 Spacer()
 
                 progressIndicator
-                    .padding(.bottom, 24)
-
-                bottomButtons
                     .padding(.bottom, 40)
             }
             .padding(.horizontal, 32)
@@ -60,17 +62,18 @@ struct PreSleepTrainingView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white.opacity(buttonsDimmed ? 0.1 : 0.3))
+                            .font(.headline)
+                            .foregroundColor(chromeColor.opacity(buttonsDimmed ? 0.1 : 0.3))
                             .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Close pre-sleep session")
+                    .accessibilityHint("Stops audio and closes the session")
                 }
                 Spacer()
             }
             .padding(.top, 8)
             .padding(.trailing, 8)
         }
-        .preferredColorScheme(.dark)
         .persistentSystemOverlays(.hidden)
         .onAppear {
             // Dim buttons after 30s so they don't distract, but remain tappable
@@ -90,26 +93,12 @@ struct PreSleepTrainingView: View {
                     onTrainingCompleted?()
                     dismiss()
                 }
+            } else if case .cancelled = newState {
+                dismiss()
             }
         }
         .onChange(of: session.cueDeliveryCount) { _, _ in
             pulseRing()
-        }
-    }
-
-    // MARK: - Bottom Buttons
-
-    private var bottomButtons: some View {
-        Button {
-            session.skipToNextCue()
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 11))
-                Text("Next Cue")
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .foregroundColor(.white.opacity(buttonsDimmed ? 0.1 : 0.3))
         }
     }
 
@@ -144,10 +133,10 @@ struct PreSleepTrainingView: View {
 
     private var instructionText: some View {
         Text(session.currentInstruction)
-            .font(.system(size: 15, weight: .light, design: .serif))
+            .font(.body)
             .multilineTextAlignment(.center)
             .lineSpacing(5)
-            .foregroundColor(.white.opacity(dimmedTextOpacity))
+            .foregroundColor(chromeColor.opacity(dimmedTextOpacity))
             .animation(.easeInOut(duration: 1.5), value: session.currentInstruction)
             .frame(minHeight: 80)
     }
@@ -156,12 +145,12 @@ struct PreSleepTrainingView: View {
 
     private var progressIndicator: some View {
         Group {
-            if case .running(let cues, let elapsed) = session.state {
+            if case .running(_, let elapsed) = session.state {
                 VStack(spacing: 8) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Rectangle()
-                                .fill(Color.white.opacity(0.06))
+                                .fill(chromeColor.opacity(colorScheme == .dark ? 0.06 : 0.12))
                                 .frame(height: 2)
 
                             Rectangle()
@@ -176,11 +165,12 @@ struct PreSleepTrainingView: View {
                     .frame(height: 2)
 
                     Text(timeRemaining(elapsed))
-                        .font(.system(size: 12, weight: .light, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.15))
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(chromeColor.opacity(0.2))
                 }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Animation
@@ -218,5 +208,3 @@ struct PreSleepTrainingView: View {
         return "\(min):\(String(format: "%02d", sec)) remaining"
     }
 }
-
-

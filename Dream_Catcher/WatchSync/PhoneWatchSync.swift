@@ -48,6 +48,8 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
     /// True when interactive messaging to the Watch is available.
     /// This generally requires the Watch app to be in the foreground.
     private(set) var isReachable: Bool = false
+    private var lastAppliedSleepSessionState: Bool?
+    private var lastAppliedSleepSessionUpdatedAt: TimeInterval = 0
 
     private override init() {
         super.init()
@@ -179,8 +181,11 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
 
     private func handleIncoming(_ payload: [String: Any]) {
         if let isActive = payload[Self.syncSleepSessionState] as? Bool {
+            let updatedAt = payload[Self.syncSleepSessionUpdatedAt] as? TimeInterval ?? 0
+            if shouldApplySleepSessionState(isActive: isActive, updatedAt: updatedAt) {
             DispatchQueue.main.async { [weak self] in
                 self?.sleepSessionController?.applyWatchSessionState(isActive: isActive)
+            }
             }
         }
 
@@ -223,5 +228,18 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
         } catch {
             log("WC updateApplicationContext error: \(error)")
         }
+    }
+
+    private func shouldApplySleepSessionState(isActive: Bool, updatedAt: TimeInterval) -> Bool {
+        if updatedAt > 0 {
+            guard updatedAt > lastAppliedSleepSessionUpdatedAt else { return false }
+            lastAppliedSleepSessionUpdatedAt = updatedAt
+            lastAppliedSleepSessionState = isActive
+            return true
+        }
+
+        guard lastAppliedSleepSessionState != isActive else { return false }
+        lastAppliedSleepSessionState = isActive
+        return true
     }
 }

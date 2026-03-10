@@ -1,44 +1,32 @@
+//
 //  WatchSleepSession.swift
 //  Watch_Dream_Catcher Watch App
 //
-//  Manages WKExtendedRuntimeSession (physical-therapy mode) for background
-//  haptic delivery during sleep.
+//  Manages an HKWorkoutSession to keep the watch app alive while haptic
+//  cues are delivered during sleep.
 //
-//  Physical-therapy sessions:
-//    - Run in the background (like alarm sessions)
-//    - Use start(), not start(at:)
-//    - Last up to 1 hour (vs 30 min for alarm)
-//    - Do NOT require notifyUser() — no system alarm alert
-//    - Haptics are delivered via WKInterfaceDevice.play()
 
+import HealthKit
 import Observation
-import WatchKit
 
 @Observable
 final class WatchSleepSession: NSObject {
 
     static let shared = WatchSleepSession()
 
-    // MARK: - State
-
     enum SessionState: Equatable {
         case inactive
         case active
-        case expiringSoon
-        case renewing
-        case expired
         case error(String)
 
         static func == (lhs: SessionState, rhs: SessionState) -> Bool {
             switch (lhs, rhs) {
-            case (.inactive, .inactive),
-                (.active, .active),
-                (.expiringSoon, .expiringSoon),
-                (.renewing, .renewing),
-                (.expired, .expired):
+            case (.inactive, .inactive), (.active, .active):
                 return true
-            case (.error(let a), .error(let b)): return a == b
-            default: return false
+            case (.error(let a), .error(let b)):
+                return a == b
+            default:
+                return false
             }
         }
     }
@@ -51,7 +39,6 @@ final class WatchSleepSession: NSObject {
 
     private(set) var state: SessionState = .inactive
     private(set) var sessionStartTime: Date?
-    private(set) var sessionsRenewed: Int = 0
 
     /// Updated by iPhone via WCSession ("sleepFocusOn" / "sleepFocusOff").
     var isSleepFocusActive: Bool = false {
@@ -65,7 +52,7 @@ final class WatchSleepSession: NSObject {
     }
 
     var isLive: Bool {
-        state == .active || state == .expiringSoon
+        state == .active
     }
 
     var isSessionRequested: Bool {
@@ -73,25 +60,16 @@ final class WatchSleepSession: NSObject {
     }
 
     var isBusyStarting: Bool {
-        isStarting || pendingRenewal || pendingStop
+        isStarting || isAuthorizing
     }
 
-    // MARK: - Private
-
-    private var session: WKExtendedRuntimeSession?
-    private let renewalLeadTime: TimeInterval = 10
+    private let healthStore = HKHealthStore()
+    private var workoutSession: HKWorkoutSession?
     private var manuallyStarted = false
     private var sleepSessionRequested = false
-
     private var isStarting = false
-
-    private var pendingRenewal = false
-    private var pendingStop = false
-
-    private let postInvalidateCooldown: TimeInterval = 1.2
-    private let minInterStartSpacing: TimeInterval = 1.8
-    private var lastStartRequestAt: Date?
-    private var lastInvalidationAt: Date?
+    private var isAuthorizing = false
+    private var isStopping = false
 
     private func ensureMain(_ block: @escaping () -> Void) {
         if Thread.isMainThread {
@@ -101,41 +79,30 @@ final class WatchSleepSession: NSObject {
         }
     }
 
-    // MARK: - Start
-
     func start(source: SessionControlSource = .internal) {
         ensureMain {
-            guard self.state == .inactive || self.state == .expired else {
-                return
-            }
-            guard !self.pendingStop, !self.pendingRenewal else { return }
-            guard !self.isBusyStarting, self.session == nil else { return }
+            guard !self.isLive, !self.isBusyStarting else { return }
 
             if source == .localWatch {
                 WatchSessionManager.shared.sendStartSleepSessionToPhone()
             }
+
             self.manuallyStarted = true
             self.sleepSessionRequested = true
             WatchSessionManager.shared.publishSleepSessionState(isActive: true)
-            self.startSession()
+            self.startWorkoutSessionIfNeeded()
         }
     }
 
     func autoStartIfAppropriate() {
         ensureMain {
-            guard self.state == .inactive || self.state == .expired else {
-                return
-            }
-            guard self.isSleepFocusActive || self.sleepSessionRequested else {
-                return
-            }
-            guard !self.pendingStop, !self.pendingRenewal else { return }
-            guard !self.isBusyStarting, self.session == nil else { return }
+            guard !self.isLive, !self.isBusyStarting else { return }
+            guard self.isSleepFocusActive || self.sleepSessionRequested else { return }
 
             self.manuallyStarted = false
             self.sleepSessionRequested = true
             WatchSessionManager.shared.publishSleepSessionState(isActive: true)
-            self.startSession()
+            self.startWorkoutSessionIfNeeded()
         }
     }
 
@@ -144,228 +111,163 @@ final class WatchSleepSession: NSObject {
             if source == .localWatch {
                 WatchSessionManager.shared.sendStopSleepSessionToPhone()
             }
+
             self.sleepSessionRequested = false
             self.manuallyStarted = false
             WatchSessionManager.shared.publishSleepSessionState(isActive: false)
 
-            guard let s = self.session else {
+            guard let workoutSession = self.workoutSession else {
                 self.finishStopped()
                 return
             }
 
-            self.pendingStop = true
-            s.invalidate()
+            self.isStopping = true
+
+            switch workoutSession.state {
+            case .running, .paused:
+                workoutSession.stopActivity(with: Date())
+            case .notStarted, .prepared, .stopped, .ended:
+                workoutSession.end()
+            @unknown default:
+                workoutSession.end()
+            }
+        }
+    }
+
+    private func startWorkoutSessionIfNeeded() {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            state = .error("HealthKit unavailable")
+            sleepSessionRequested = false
+            return
+        }
+
+        guard workoutSession == nil else { return }
+
+        isStarting = true
+        requestAuthorization { [weak self] success, error in
+            guard let self else { return }
+
+            self.ensureMain {
+                self.isAuthorizing = false
+
+                guard self.sleepSessionRequested else {
+                    self.isStarting = false
+                    return
+                }
+
+                guard success else {
+                    self.isStarting = false
+                    self.state = .error(error?.localizedDescription ?? "Workout authorization failed")
+                    self.sleepSessionRequested = false
+                    WatchSessionManager.shared.publishSleepSessionState(isActive: false)
+                    return
+                }
+
+                do {
+                    let configuration = HKWorkoutConfiguration()
+                    configuration.activityType = .mindAndBody
+                    configuration.locationType = .unknown
+
+                    let workoutSession = try HKWorkoutSession(
+                        healthStore: self.healthStore,
+                        configuration: configuration
+                    )
+                    workoutSession.delegate = self
+                    self.workoutSession = workoutSession
+                    workoutSession.prepare()
+                    workoutSession.startActivity(with: Date())
+                    WatchCueScheduler.shared.hasLiveSession = false
+                } catch {
+                    self.isStarting = false
+                    self.state = .error(error.localizedDescription)
+                    self.sleepSessionRequested = false
+                    self.workoutSession = nil
+                    WatchSessionManager.shared.publishSleepSessionState(isActive: false)
+                }
+            }
+        }
+    }
+
+    private func requestAuthorization(
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
+        guard !isAuthorizing else { return }
+
+        isAuthorizing = true
+        let shareTypes: Set = [HKObjectType.workoutType()]
+
+        healthStore.requestAuthorization(toShare: shareTypes, read: []) {
+            success,
+            error in
+            completion(success, error)
         }
     }
 
     private func finishStopped() {
         isStarting = false
-        pendingRenewal = false
-        pendingStop = false
-
-        session = nil
+        isAuthorizing = false
+        isStopping = false
+        workoutSession?.delegate = nil
+        workoutSession = nil
         state = .inactive
         sessionStartTime = nil
-        sessionsRenewed = 0
         WatchCueScheduler.shared.hasLiveSession = false
         WatchSessionManager.shared.publishSleepSessionState(isActive: false)
     }
-
-    // MARK: - Internal
-
-    private func canIssueNewStartNow() -> Bool {
-        if let t = lastStartRequestAt,
-            Date().timeIntervalSince(t) < minInterStartSpacing
-        {
-            return false
-        }
-        if let t = lastInvalidationAt,
-            Date().timeIntervalSince(t) < postInvalidateCooldown
-        {
-            return false
-        }
-        return true
-    }
-
-    private func startSession() {
-        guard !isStarting else { return }
-        guard canIssueNewStartNow() else { return }
-        guard session == nil else { return }
-        guard state == .inactive || state == .expired else { return }
-        guard !pendingStop, !pendingRenewal else { return }
-
-        isStarting = true
-        lastStartRequestAt = Date()
-
-        let newSession = WKExtendedRuntimeSession()
-        newSession.delegate = self
-        self.session = newSession
-        newSession.start()
-
-        WatchCueScheduler.shared.hasLiveSession = false
-    }
-
-    // MARK: - Renewal
-
-    private func renewSession() {
-        guard sleepSessionRequested else {
-            state = .expired
-            WatchCueScheduler.shared.hasLiveSession = false
-            return
-        }
-        guard !pendingStop else { return }
-
-        guard let s = session else {
-            state = .renewing
-            isStarting = false
-            pendingRenewal = true
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + postInvalidateCooldown
-            ) { [weak self] in
-                self?.attemptStartAfterInvalidationIfPending()
-            }
-            return
-        }
-
-        state = .renewing
-        pendingRenewal = true
-
-        s.invalidate()
-    }
-
-    private func attemptStartAfterInvalidationIfPending() {
-        guard pendingRenewal, sleepSessionRequested else { return }
-        guard !pendingStop else { return }
-        guard canIssueNewStartNow() else {
-            let delay: TimeInterval = minInterStartSpacing
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                [weak self] in
-                self?.attemptStartAfterInvalidationIfPending()
-            }
-            return
-        }
-        guard session == nil, !isStarting else { return }
-
-        isStarting = true
-        lastStartRequestAt = Date()
-
-        let newSession = WKExtendedRuntimeSession()
-        newSession.delegate = self
-        self.session = newSession
-        newSession.start()
-
-        sessionsRenewed += 1
-        WatchCueScheduler.shared.hasLiveSession = false
-    }
 }
 
-// MARK: - WKExtendedRuntimeSessionDelegate
+extension WatchSleepSession: HKWorkoutSessionDelegate {
 
-extension WatchSleepSession: WKExtendedRuntimeSessionDelegate {
-
-    func extendedRuntimeSessionDidStart(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState,
+        date: Date
     ) {
-        ensureMain {
-            guard extendedRuntimeSession === self.session else { return }
-            self.state = .active
-            WatchCueScheduler.shared.hasLiveSession = true
+        DispatchQueue.main.async {
+            guard workoutSession == self.workoutSession else { return }
+
+            switch toState {
+            case .running:
+                self.state = .active
+                self.isStarting = false
+                self.isStopping = false
+                self.sessionStartTime = self.sessionStartTime ?? date
+                WatchCueScheduler.shared.hasLiveSession = true
+
+            case .stopped:
+                workoutSession.end()
+
+            case .ended:
+                self.finishStopped()
+
+            case .notStarted, .prepared, .paused:
+                break
+
+            @unknown default:
+                self.state = .error("Unknown workout state")
+                self.isStarting = false
+                self.isStopping = false
+                WatchCueScheduler.shared.hasLiveSession = false
+            }
+        }
+    }
+
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didFailWithError error: any Error
+    ) {
+        DispatchQueue.main.async {
+            guard workoutSession == self.workoutSession else { return }
+
             self.isStarting = false
-            self.pendingRenewal = false
-            if self.sessionStartTime == nil {
-                self.sessionStartTime = Date()
-            }
-            if self.pendingStop {
-                extendedRuntimeSession.invalidate()
-            }
-        }
-    }
-
-    func extendedRuntimeSessionWillExpire(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession
-    ) {
-        ensureMain {
-            guard extendedRuntimeSession === self.session else { return }
-            self.state = .expiringSoon
-            // Renew immediately — don't delay, or the system may expire
-            // the session before pendingRenewal is set, causing it to
-            // fall through to the non-renewal expired branch.
-            self.renewSession()
-        }
-    }
-
-    func extendedRuntimeSession(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession,
-        didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
-        error: Error?
-    ) {
-        ensureMain {
-            self.lastInvalidationAt = Date()
-
-            if self.session == nil || extendedRuntimeSession === self.session {
-                if extendedRuntimeSession === self.session {
-                    self.session?.delegate = nil
-                    self.session = nil
-                }
-
-                switch reason {
-                case .expired:
-                    if self.pendingStop {
-                        self.finishStopped()
-                    } else if self.pendingRenewal || self.sleepSessionRequested {
-                        // Ensure renewal proceeds even if the system expired the
-                        // session before renewSession() had a chance to run.
-                        self.pendingRenewal = true
-                        self.isStarting = false
-                        self.state = .renewing
-                        DispatchQueue.main.asyncAfter(
-                            deadline: .now() + self.postInvalidateCooldown
-                        ) {
-                            [weak self] in
-                            self?.attemptStartAfterInvalidationIfPending()
-                        }
-                    } else {
-                        self.state = .expired
-                        self.isStarting = false
-                        WatchCueScheduler.shared.hasLiveSession = false
-                    }
-
-                case .sessionInProgress:
-                    self.isStarting = false
-
-                case .error:
-                    self.state = .error(
-                        error?.localizedDescription ?? "Unknown error"
-                    )
-                    self.isStarting = false
-                    self.pendingRenewal = false
-                    self.pendingStop = false
-                    WatchCueScheduler.shared.hasLiveSession = false
-
-                case .none:
-                    if self.pendingStop {
-                        self.finishStopped()
-                    } else if self.pendingRenewal {
-                        DispatchQueue.main.asyncAfter(
-                            deadline: .now() + self.postInvalidateCooldown
-                        ) {
-                            [weak self] in
-                            self?.attemptStartAfterInvalidationIfPending()
-                        }
-                    } else if self.state != .renewing {
-                        self.state = .inactive
-                        self.isStarting = false
-                        WatchCueScheduler.shared.hasLiveSession = false
-                    }
-
-                default:
-                    self.state = .expired
-                    self.isStarting = false
-                    self.pendingRenewal = false
-                    self.pendingStop = false
-                    WatchCueScheduler.shared.hasLiveSession = false
-                }
-            }
+            self.isStopping = false
+            self.state = .error(error.localizedDescription)
+            self.workoutSession?.delegate = nil
+            self.workoutSession = nil
+            self.sleepSessionRequested = false
+            WatchCueScheduler.shared.hasLiveSession = false
+            WatchSessionManager.shared.publishSleepSessionState(isActive: false)
         }
     }
 }

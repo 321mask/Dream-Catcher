@@ -22,8 +22,12 @@ struct SettingsView: View {
                 Button {
                     showHapticTester = true
                 } label: {
-                    Label("Configure Watch Haptics", systemImage: "applewatch")
+                    settingsActionRow(
+                        title: "Configure Watch Haptics",
+                        systemImage: "applewatch"
+                    )
                 }
+                .buttonStyle(.plain)
             }
 
             Section("Next REM Windows") {
@@ -50,24 +54,24 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Testing") {
+            /*Section("Testing") {
                 NavigationLink("Cue Testing") {
                     CueTestingView(coordinator: coordinator)
                 }
 
 
-            }
+            }*/
 
             Section("Help") {
-                Button("View Onboarding") {
+                Button {
                     showOnboarding = true
+                } label: {
+                    settingsActionRow(
+                        title: "View Onboarding",
+                        systemImage: "sparkles"
+                    )
                 }
-            }
-
-            Section("Tuning") {
-                Text("Half-life: 14 days\nSmoothing radius: 1 bin\nIgnore prefix: first 60 minutes\nMin separation: 90 minutes\nCues/window: 5, spacing 120s")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
             }
         }
         .appBackground()
@@ -80,5 +84,27 @@ struct SettingsView: View {
         .sheet(isPresented: $showHapticTester) {
             TestHapticsView()
         }
+    }
+
+    private func settingsActionRow(title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.primary)
+                .frame(width: 20)
+
+            Text(title)
+                .foregroundStyle(.primary)
+                .font(.body)
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }

@@ -30,10 +30,11 @@ final class PreSleepTrainingSession {
         case idle
         case running(cuesDelivered: Int, elapsed: TimeInterval)
         case completed
+        case cancelled
 
         static func == (lhs: SessionState, rhs: SessionState) -> Bool {
             switch (lhs, rhs) {
-            case (.idle, .idle), (.completed, .completed): return true
+            case (.idle, .idle), (.completed, .completed), (.cancelled, .cancelled): return true
             case let (.running(a1, a2), .running(b1, b2)): return a1 == b1 && a2 == b2
             default: return false
             }
@@ -60,6 +61,7 @@ final class PreSleepTrainingSession {
     private let player: LucidCuePlayer
     private let calibration: VolumeCalibration
     private let speechSynth = AVSpeechSynthesizer()
+    private var guidancePlayer: AVAudioPlayer?
 
     private var timer: Timer?
     private var startTime: Date?
@@ -82,8 +84,10 @@ final class PreSleepTrainingSession {
         startTime = Date()
         cuesDelivered = 0
         lastCueTime = nil
+        lastSpokenText = nil
         state = .running(cuesDelivered: 0, elapsed: 0)
 
+        startGuidanceAudioIfAvailable()
         deliverCue()
 
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) {
@@ -94,8 +98,11 @@ final class PreSleepTrainingSession {
     func stop() {
         timer?.invalidate()
         timer = nil
+        player.stopCue()
+        guidancePlayer?.stop()
+        guidancePlayer = nil
         speechSynth.stopSpeaking(at: .immediate)
-        state = .completed
+        state = .cancelled
     }
 
     /// Skip the wait and deliver the next cue immediately.
@@ -112,7 +119,7 @@ final class PreSleepTrainingSession {
 
         if elapsed >= sessionDuration {
             setInstruction(TrainingPrompts.sessionComplete)
-            stop()
+            finish()
             return
         }
 
@@ -141,7 +148,8 @@ final class PreSleepTrainingSession {
         cueDeliveryCount += 1
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.setInstruction(TrainingPrompts.postCueReinforcement)
+            guard let self, case .running = self.state else { return }
+            self.setInstruction(TrainingPrompts.postCueReinforcement)
         }
     }
 
@@ -155,14 +163,43 @@ final class PreSleepTrainingSession {
         setInstruction(TrainingPrompts.awareness[promptIndex])
     }
 
-    // MARK: - Speech
+    // MARK: - Guidance
 
     private func setInstruction(_ text: String) {
         currentInstruction = text
-        speak(text)
+        speakFallback(text)
     }
 
-    private func speak(_ text: String) {
+    private func startGuidanceAudioIfAvailable() {
+        guidancePlayer?.stop()
+        guidancePlayer = nil
+
+        guard let url = Bundle.main.url(forResource: "newVoice", withExtension: "mp3") else {
+            return
+        }
+
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.prepareToPlay()
+            player.play()
+            guidancePlayer = player
+        } catch {
+            guidancePlayer = nil
+        }
+    }
+
+    private func finish() {
+        timer?.invalidate()
+        timer = nil
+        player.stopCue()
+        guidancePlayer?.stop()
+        guidancePlayer = nil
+        speechSynth.stopSpeaking(at: .immediate)
+        state = .completed
+    }
+
+    private func speakFallback(_ text: String) {
+        guard guidancePlayer == nil else { return }
         guard text != lastSpokenText else { return }
         lastSpokenText = text
 

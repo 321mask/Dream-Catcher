@@ -48,6 +48,7 @@
 				Audio/LucidCue.swift,
 				Audio/LucidCueAudioGenerator.swift,
 				Audio/LucidCuePlayer.swift,
+				Audio/newVoice.mp3,
 			);
 			target = 3AA28EB12F19834A000C0253 /* Watch_Dream_Catcher Watch App */;
 		};
@@ -368,7 +369,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 426X87W599;
+				DEVELOPMENT_TEAM = TJNHB2R4K6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Dream-Catcher-Info.plist";
@@ -387,8 +388,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.usmannsv.Dream-Catcher";
+				MARKETING_VERSION = 1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -433,7 +434,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -459,7 +460,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Watch_Dream_Catcher Watch App/Watch_Dream_Catcher Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 426X87W599;
+				DEVELOPMENT_TEAM = TJNHB2R4K6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
@@ -467,13 +468,13 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Dream ​Catcher uses a workout session to deliver haptic cues during sleep.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Dream ​Catcher saves a mindfulness workout to track your sleep sessions.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.usmannsv.Dream-Catcher";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.usmannsv.Dream-Catcher.watchkitapp";
+				MARKETING_VERSION = 1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -507,12 +508,12 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Dream ​Catcher uses a workout session to deliver haptic cues during sleep.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Dream ​Catcher saves a mindfulness workout to track your sleep sessions.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.usmannsv.Dream-Catcher";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

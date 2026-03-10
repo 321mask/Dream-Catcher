@@ -14,6 +14,18 @@ struct HomeView: View {
     @State private var showGraph = false
     @Environment(\.colorScheme) private var colorScheme
 
+    private var primaryTextColor: Color {
+        colorScheme == .dark ? .white : Color.black.opacity(0.82)
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.7) : Color.black.opacity(0.58)
+    }
+
+    private var chipBackgroundColor: Color {
+        colorScheme == .dark ? .white.opacity(0.25) : .white.opacity(0.72)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -25,8 +37,8 @@ struct HomeView: View {
                         .frame(height: 70)
 
                     Text(nextCueText)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .font(.headline)
+                        .foregroundStyle(primaryTextColor)
                         .padding(.bottom, 28)
 
                     // POWER BUTTON
@@ -46,43 +58,46 @@ struct HomeView: View {
                                 .clipShape(Circle())
                             }
                     }
+                    .accessibilityLabel(isSessionActive ? "End sleep session" : "Start sleep session")
+                    .accessibilityHint(isSessionActive ? "Stops the current sleep session" : "Begins the sleep flow")
 
                     // VIEW GRAPH BUTTON
                     Button {
                         showGraph = true
                     } label: {
                         Label("View Graph", systemImage: "chart.bar")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .font(.headline)
+                            .foregroundStyle(primaryTextColor)
                             .padding(.horizontal, 22)
                             .padding(.vertical, 10)
-                            .background(.white.opacity(0.25))
+                            .background(chipBackgroundColor)
                             .clipShape(Capsule())
                     }
                     .padding(.top, 20)
+                    .accessibilityHint("Shows your latest REM graph")
 
                     // Status info
                     VStack(spacing: 6) {
                         Text(coordinator.statusText)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.85))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(primaryTextColor)
 
                         Text("Updated: \(lastUpdatedString)")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.footnote)
+                            .foregroundStyle(secondaryTextColor)
 
                         Text(
                             "Cues delivered: \(coordinator.watchCuesDeliveredTonight)"
                         )
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(.footnote)
+                        .foregroundStyle(secondaryTextColor)
                     }
                     .padding(.top, 18)
 
                     if let sessionError {
                         Text(sessionError)
-                            .font(.system(size: 13))
-                            .foregroundStyle(.red)
+                            .font(.footnote)
+                            .foregroundStyle(secondaryTextColor)
                             .padding(.top, 8)
                     }
                     Spacer()
@@ -94,8 +109,9 @@ struct HomeView: View {
                         SettingsView(coordinator: coordinator)
                     } label: {
                         Image(systemName: "gearshape.fill")
-                            .foregroundStyle(.white)
+                            .foregroundStyle(primaryTextColor)
                     }
+                    .accessibilityLabel("Settings")
                 }
             }
 
@@ -160,7 +176,6 @@ struct HomeView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .tint(AppTheme.accent)
     }
 

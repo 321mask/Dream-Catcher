@@ -55,6 +55,14 @@ struct CurveView: View {
     private var dynamicMaxY: Double {
         max(maxValue * 1.25, 5)
     }
+
+    private var xAxisStrideMinutes: Int {
+        let durationMinutes = max(Int(sleepEnd.timeIntervalSince(sleepStart) / 60), 1)
+        let targetLabelCount = 4
+        let rawStride = max(durationMinutes / targetLabelCount, 30)
+        let roundedStride = Int(ceil(Double(rawStride) / 30.0) * 30.0)
+        return roundedStride
+    }
     
     // MARK: - Body
     
@@ -96,7 +104,7 @@ extension CurveView {
                 )
                 .cornerRadius(6)
                 .foregroundStyle(
-                    point.percentage >= top2Threshold ? Color.green : Color.blue
+                    point.percentage >= top2Threshold ? Color.green : Color(hex: "7A7AFE")
                 )
             }
             
@@ -118,13 +126,15 @@ extension CurveView {
             }
         }
         
-        // X axis (first label will be sleepStart)
+        // X axis: show a reduced set of labels to avoid overlap.
         .chartXAxis {
             AxisMarks(values: [sleepStart]) { value in
+                AxisGridLine()
+                    .foregroundStyle(.gray.opacity(0.2))
                 AxisValueLabel(format: .dateTime.hour().minute())
             }
             
-            AxisMarks(values: .stride(by: .minute, count: 30)) { value in
+            AxisMarks(values: .stride(by: .minute, count: xAxisStrideMinutes)) { value in
                 AxisGridLine()
                     .foregroundStyle(.gray.opacity(0.2))
                 

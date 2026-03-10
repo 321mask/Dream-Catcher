@@ -1,11 +1,10 @@
 //  WatchCueScheduler.swift
 //  Watch_Dream_Catcher Watch App
 //
-//  Delivers haptic cues during an active WKExtendedRuntimeSession
-//  (physical-therapy mode).
+//  Delivers haptic cues during an active HKWorkoutSession.
 //
 //  Haptics are played via WKInterfaceDevice.play(), which works in the
-//  background during an active extended runtime session.
+//  background during an active workout session.
 //
 //  Flow:
 //    - Cue fire dates are stored in scheduledFireDates.
@@ -50,6 +49,7 @@ final class WatchCueScheduler {
 
     private(set) var scheduledFireDates: [Date] = []
     private var directDispatchItems: [DispatchWorkItem] = []
+    private var autoStopWorkItem: DispatchWorkItem?
 
     // MARK: - Init
 
@@ -106,7 +106,14 @@ final class WatchCueScheduler {
         stopDirectDelivery()
         isDeliveringDirectly = true
 
-        for date in fireDates {
+        let upcomingFireDates = fireDates.filter { $0.timeIntervalSinceNow > 0 }
+
+        guard !upcomingFireDates.isEmpty else {
+            scheduleAutoStop(after: nil, expectedFireDates: fireDates)
+            return
+        }
+
+        for date in upcomingFireDates {
             let delay = date.timeIntervalSinceNow
             guard delay > 0 else { continue }
 
@@ -117,12 +124,30 @@ final class WatchCueScheduler {
             directDispatchItems.append(item)
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
         }
+
+        scheduleAutoStop(after: upcomingFireDates.last, expectedFireDates: fireDates)
     }
 
     private func stopDirectDelivery() {
         isDeliveringDirectly = false
         for item in directDispatchItems { item.cancel() }
         directDispatchItems.removeAll()
+        autoStopWorkItem?.cancel()
+        autoStopWorkItem = nil
+    }
+
+    private func scheduleAutoStop(after lastFireDate: Date?, expectedFireDates: [Date]) {
+        autoStopWorkItem?.cancel()
+
+        let stopDelay = max((lastFireDate?.timeIntervalSinceNow ?? 0) + 1.2, 0)
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard self.hasLiveSession, self.scheduledFireDates == expectedFireDates else { return }
+            WatchSleepSession.shared.stop(source: .internal)
+        }
+
+        autoStopWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + stopDelay, execute: work)
     }
 
     // MARK: - Cue Delivery via WKInterfaceDevice

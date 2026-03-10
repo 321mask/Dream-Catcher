@@ -43,6 +43,19 @@ struct RemBarChartView: View {
     private var minValue: Double {
         data.map(\.percentage).min() ?? 0
     }
+
+    private var xAxisValues: [Date] {
+        guard !data.isEmpty else { return [] }
+
+        let desiredLabelCount = min(4, data.count)
+        guard desiredLabelCount > 1 else { return [data[0].time] }
+
+        let lastIndex = data.count - 1
+        return (0..<desiredLabelCount).map { step in
+            let index = Int(round(Double(step) * Double(lastIndex) / Double(desiredLabelCount - 1)))
+            return data[index].time
+        }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -55,7 +68,7 @@ struct RemBarChartView: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [.purple, .blue],
+                            colors: [.purple, Color(hex: "7A7AFE")],
                             startPoint: .bottom,
                             endPoint: .top
                         )
@@ -70,7 +83,7 @@ struct RemBarChartView: View {
                     .annotation(position: .topTrailing) {
                         Text("Max \(Int(maxValue))%")
                             .font(.caption2)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.secondary)
                     }
                 
                 // Min Line
@@ -80,7 +93,7 @@ struct RemBarChartView: View {
                     .annotation(position: .bottomTrailing) {
                         Text("Min \(Int(minValue))%")
                             .font(.caption2)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.secondary)
                     }
             }
             .frame(height: 240)
@@ -96,10 +109,10 @@ struct RemBarChartView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                AxisMarks(values: xAxisValues) { value in
                     AxisGridLine()
                     AxisTick()
-                    AxisValueLabel(format: .dateTime.hour())
+                    AxisValueLabel(format: .dateTime.hour().minute())
                         .font(.caption2)
                 }
             }

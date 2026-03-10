@@ -33,7 +33,7 @@ struct WatchSleepSessionView: View {
                 HapticsControlView()
             } label: {
                 Label("Haptics Test", systemImage: "waveform.path")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 36)
             }
             .buttonStyle(.bordered)
@@ -69,7 +69,7 @@ struct WatchSleepSessionView: View {
             .onAppear { pulseAnimation = true }
 
             Text(statusLabel)
-                .font(.system(size: 13, weight: .medium))
+                .font(.subheadline.weight(.medium))
                 .foregroundColor(.white.opacity(0.8))
         }
     }
@@ -79,27 +79,29 @@ struct WatchSleepSessionView: View {
     private var actionButton: some View {
         Group {
             switch sleepSession.state {
-            case .inactive, .expired, .error:
+            case .inactive, .error:
                 Button {
                     sleepSession.start(source: .localWatch)
                 } label: {
                     Label(sleepSession.isBusyStarting ? "Starting..." : "Start Sleep", systemImage: "moon.fill")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.indigo)
                 .disabled(sleepSession.isBusyStarting)
+                .accessibilityHint("Starts the watch sleep session")
 
-            case .active, .expiringSoon, .renewing:
+            case .active:
                 Button(role: .destructive) {
                     showingConfirmStop = true
                 } label: {
                     Label("End Sleep", systemImage: "sun.max.fill")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.bordered)
+                .accessibilityHint("Stops the watch sleep session")
                 .confirmationDialog(
                     "End sleep session?",
                     isPresented: $showingConfirmStop,
@@ -119,41 +121,33 @@ struct WatchSleepSessionView: View {
     private var sessionInfo: some View {
         HStack(spacing: 4) {
             Image(systemName: "hand.tap")
-                .font(.system(size: 9))
+                .font(.caption2)
                 .foregroundColor(.green.opacity(0.6))
+                .accessibilityHidden(true)
 
             Text("Enhanced cues active")
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
 
-            if sleepSession.sessionsRenewed > 0 {
-                Text("· \(sleepSession.sessionsRenewed)x renewed")
-                    .font(.system(size: 10))
-                    .foregroundColor(.white.opacity(0.3))
-            }
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Helpers
 
     private var statusColor: Color {
         switch sleepSession.state {
-        case .active:       return .green
-        case .expiringSoon: return .yellow
-        case .renewing:     return .orange
-        case .error:        return .red
-        default:            return .gray.opacity(0.5)
+        case .active: return .green
+        case .error: return .red
+        default: return .gray.opacity(0.5)
         }
     }
 
     private var statusLabel: String {
         switch sleepSession.state {
-        case .active:       return "Sleep session active"
-        case .expiringSoon,
-             .renewing:     return "Renewing..."
-        case .inactive:     return "Ready"
-        case .expired:      return "Session ended"
-        case .error:        return "Error"
+        case .active: return "Sleep session active"
+        case .inactive: return "Ready"
+        case .error: return "Error"
         }
     }
 }

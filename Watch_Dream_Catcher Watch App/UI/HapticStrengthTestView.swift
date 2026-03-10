@@ -35,6 +35,7 @@ struct HapticStrengthTestView: View {
                         step: 1
                     )
                     .tint(.purple)
+                    .accessibilityLabel("Haptic strength")
 
                     HStack {
                         Text("Selected:")
@@ -57,6 +58,7 @@ struct HapticStrengthTestView: View {
                     }
                 }
                 .disabled(isPlaying)
+                .accessibilityHint("Plays the selected strength on Apple Watch")
             } footer: {
                 if let ts = lastPlayedAt {
                     Text("Last played: \(ts.formatted(date: .omitted, time: .standard))")
@@ -67,7 +69,6 @@ struct HapticStrengthTestView: View {
                 }
             }
         }
-        .navigationTitle("Watch Haptic Test")
     }
 
     private func label(for value: Int) -> String {

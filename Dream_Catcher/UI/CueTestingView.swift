@@ -69,6 +69,7 @@ struct CueTestingView: View {
     @State private var player = TestCuePlayer()
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     private let testDelayOptions: [(label: String, seconds: TimeInterval)] = [
         ("10s", 10),
@@ -113,23 +114,24 @@ struct CueTestingView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: preset.icon)
-                            .font(.system(size: 16))
+                            .font(.body)
                             .foregroundColor(.indigo)
                             .frame(width: 24)
+                            .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Text(preset.label)
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.body.weight(.medium))
                                     .foregroundColor(.primary)
 
                                 Text("(\(Int(preset.volume * 100))%)")
-                                    .font(.system(size: 12, design: .monospaced))
+                                    .font(.caption.monospacedDigit())
                                     .foregroundColor(.secondary)
                             }
 
                             Text(preset.description)
-                                .font(.system(size: 11))
+                                .font(.footnote)
                                 .foregroundColor(.secondary)
                         }
 
@@ -138,10 +140,11 @@ struct CueTestingView: View {
                         if lastPlayedAudio == preset.id {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
-                                .font(.system(size: 14))
+                                .font(.subheadline)
                         }
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
 
             Button {
@@ -151,14 +154,17 @@ struct CueTestingView: View {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundColor(.orange)
                         .frame(width: 24)
+                        .accessibilityHidden(true)
                     Text("Custom volume...")
-                        .font(.system(size: 15))
+                        .font(.body)
                     Spacer()
                     Image(systemName: showCustomSlider ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12))
+                        .font(.footnote)
                         .foregroundColor(.secondary)
+                        .accessibilityHidden(true)
                 }
             }
+            .accessibilityHint("Shows custom audio volume controls")
         } header: {
             Text("Audio (iPhone Speaker)")
         } footer: {
@@ -173,11 +179,11 @@ struct CueTestingView: View {
             VStack(spacing: 12) {
                 HStack {
                     Text("Volume")
-                        .font(.system(size: 13))
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                     Spacer()
                     Text("\(Int(customVolume * 100))%")
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.footnote.monospacedDigit())
                         .foregroundColor(.primary)
                 }
 
@@ -186,11 +192,11 @@ struct CueTestingView: View {
 
                 HStack {
                     Text("0.01")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.caption2.monospacedDigit())
                         .foregroundColor(.secondary)
                     Spacer()
                     Text("0.50")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.caption2.monospacedDigit())
                         .foregroundColor(.secondary)
                 }
 
@@ -199,11 +205,12 @@ struct CueTestingView: View {
                     lastPlayedAudio = "custom"
                 } label: {
                     Text("Play at \(Int(customVolume * 100))%")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 36)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
+                .accessibilityHint("Plays the audio cue at the selected volume")
             }
             .padding(.vertical, 4)
         } header: {
@@ -219,6 +226,7 @@ struct CueTestingView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "applewatch.slash")
                         .foregroundColor(.orange)
+                        .accessibilityHidden(true)
                     Text("Watch not reachable. Open the Watch app first.")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
@@ -231,17 +239,18 @@ struct CueTestingView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: preset.icon)
-                            .font(.system(size: 16))
+                            .font(.body)
                             .foregroundColor(.purple)
                             .frame(width: 24)
+                            .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(preset.label)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.body.weight(.medium))
                                 .foregroundColor(.primary)
 
                             Text(preset.description)
-                                .font(.system(size: 11))
+                                .font(.footnote)
                                 .foregroundColor(.secondary)
                         }
 
@@ -250,12 +259,13 @@ struct CueTestingView: View {
                         if lastPlayedHaptic == preset.id {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
-                                .font(.system(size: 14))
+                                .font(.subheadline)
                         }
                     }
                 }
                 .disabled(!sync.isReachable)
                 .opacity(sync.isReachable ? 1 : 0.4)
+                .accessibilityElement(children: .combine)
             }
         } header: {
             Text("Haptic (Apple Watch)")
@@ -309,18 +319,22 @@ struct CueTestingView: View {
                 let container = modelContext.container
                 Task { await coordinator.runNightlyUpdate(modelContainer: container) }
             }
+            .foregroundStyle(colorScheme == .dark ? AnyShapeStyle(.white) : AnyShapeStyle(.black))
 
             Picker("First cue in", selection: $testDelayIndex) {
                 ForEach(0..<testDelayOptions.count, id: \.self) { i in
                     Text(testDelayOptions[i].label).tag(i)
                 }
             }
+            .foregroundStyle(.primary)
 
             Stepper("Cues: \(testCueCount)", value: $testCueCount, in: 1...10)
+                .foregroundStyle(.primary)
 
             Button("Schedule test cues") {
                 Task { await scheduleTest() }
             }
+            .foregroundStyle(colorScheme == .dark ? AnyShapeStyle(.white) : AnyShapeStyle(.black))
         } header: {
             Text("Schedule Test Cues")
         } footer: {
@@ -333,19 +347,21 @@ struct CueTestingView: View {
     private func presetRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.body)
                 .foregroundColor(color)
                 .frame(width: 24)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundColor(.primary)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.footnote)
                     .foregroundColor(.secondary)
             }
             Spacer()
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Actions
@@ -399,4 +415,3 @@ private struct TestCuePlayer {
         player.playCueWithFadeIn(targetVolume: volume, fadeDuration: 0.1)
     }
 }
-

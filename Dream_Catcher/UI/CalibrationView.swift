@@ -16,9 +16,30 @@ struct CalibrationView: View {
     @Binding var calibration: VolumeCalibration?
     var onComplete: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var showSuccess = false
     @State private var didSetupPlayer = false
+
+    private var primaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.9) : Color.black.opacity(0.82)
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.5) : Color.black.opacity(0.56)
+    }
+
+    private var tertiaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.2) : Color.black.opacity(0.32)
+    }
+
+    private var buttonTextColor: Color {
+        colorScheme == .dark ? .white : Color(hex: "FEF7FE")
+    }
+
+    private var sliderIconColor: Color {
+        colorScheme == .dark ? .white.opacity(0.3) : Color.black.opacity(0.42)
+    }
 
     var body: some View {
         ZStack {
@@ -30,7 +51,6 @@ struct CalibrationView: View {
                 calibrationContent
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             if !wizard.playerIsReady {
                 do {
@@ -57,22 +77,23 @@ struct CalibrationView: View {
 
             VStack(spacing: 12) {
                 Image(systemName: "speaker.wave.2")
-                    .font(.system(size: 32, weight: .thin))
+                    .font(.largeTitle)
                     .foregroundColor(Color(hex: "818CF8"))
+                    .accessibilityHidden(true)
 
                 Text("Calibrate Volume")
-                    .font(.system(size: 24, weight: .light, design: .serif))
-                    .foregroundColor(.white.opacity(0.9))
+                    .font(.title2)
+                    .foregroundColor(primaryTextColor)
             }
 
             Spacer()
                 .frame(height: 40)
 
             Text("Lie in your sleeping position.\nDrag the slider until you can\nbarely hear the sound.")
-                .font(.system(size: 15, weight: .light))
+                .font(.body)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(secondaryTextColor)
                 .padding(.horizontal, 24)
 
             Spacer()
@@ -91,8 +112,8 @@ struct CalibrationView: View {
                 }
             } label: {
                 Text("Save")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .font(.headline)
+                    .foregroundColor(buttonTextColor)
                     .frame(width: 160, height: 50)
                     .background(Color(hex: "6366F1").opacity(0.8))
                     .cornerRadius(25)
@@ -105,7 +126,8 @@ struct CalibrationView: View {
                 dismiss()
             }
             .font(.system(size: 13, weight: .light))
-            .foregroundColor(.white.opacity(0.2))
+            .accessibilityHint("Closes calibration without saving")
+            .foregroundColor(tertiaryTextColor)
 
             Spacer()
                 .frame(height: 40)
@@ -118,8 +140,9 @@ struct CalibrationView: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: "speaker.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.3))
+                    .font(.footnote)
+                    .foregroundColor(sliderIconColor)
+                    .accessibilityHidden(true)
 
                 Slider(
                     value: $wizard.volume,
@@ -135,15 +158,19 @@ struct CalibrationView: View {
                 .tint(Color(hex: "818CF8"))
 
                 Image(systemName: "speaker.wave.3.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.3))
+                    .font(.footnote)
+                    .foregroundColor(sliderIconColor)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 36)
 
             Text("\(Int(wizard.volume * 100))%")
-                .font(.system(size: 11, weight: .light, design: .monospaced))
-                .foregroundColor(.white.opacity(0.15))
+                .font(.caption.monospacedDigit())
+                .foregroundColor(tertiaryTextColor)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Volume")
+        .accessibilityValue("\(Int(wizard.volume * 100)) percent")
     }
 
     // MARK: - Success
@@ -153,17 +180,18 @@ struct CalibrationView: View {
             Spacer()
 
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 48, weight: .thin))
+                .font(.largeTitle)
                 .foregroundColor(Color(hex: "818CF8"))
+                .accessibilityHidden(true)
 
             Text("Calibration saved")
-                .font(.system(size: 20, weight: .light, design: .serif))
-                .foregroundColor(.white.opacity(0.8))
+                .font(.title3)
+                .foregroundColor(primaryTextColor)
 
             Text("Your dream signal is set to the perfect volume —\njust at the edge of hearing.")
-                .font(.system(size: 14, weight: .light))
+                .font(.body)
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(secondaryTextColor)
 
             Spacer()
 
@@ -175,8 +203,8 @@ struct CalibrationView: View {
                 }
             } label: {
                 Text("Continue")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
+                    .font(.headline)
+                    .foregroundColor(buttonTextColor)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .background(Color(hex: "6366F1").opacity(0.7))
@@ -184,6 +212,7 @@ struct CalibrationView: View {
             }
             .padding(.horizontal, 48)
             .padding(.bottom, 48)
+            .accessibilityHint("Finishes calibration")
         }
     }
 }

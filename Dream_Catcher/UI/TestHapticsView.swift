@@ -4,6 +4,7 @@ struct TestHapticsView: View {
     // 0 = 1× pattern, 1 = 2× pattern, 2 = 3× pattern
     @AppStorage("hapticStrength") private var strength: Double = 1.0
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,7 @@ struct TestHapticsView: View {
                             .onChange(of: strength) { _, newValue in
                                 PhoneWatchSync.shared.send(["command": "setHapticStrength", "value": Int(newValue)])
                             }
+                            .accessibilityLabel("Haptic strength")
 
                         HStack {
                             Text("Selected:")
@@ -45,6 +47,7 @@ struct TestHapticsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.purple)
+                    .accessibilityHint("Plays the selected haptic pattern on Apple Watch")
                 } footer: {
                     Text("Watch must be reachable. Open the Watch app to enable live messaging.")
                 }
@@ -54,6 +57,7 @@ struct TestHapticsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
                 }
             }
         }
@@ -72,4 +76,3 @@ struct TestHapticsView: View {
         PhoneWatchSync.shared.send(["command": "playSavedStrength"])
     }
 }
-

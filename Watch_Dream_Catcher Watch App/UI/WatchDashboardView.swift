@@ -26,7 +26,6 @@ struct WatchDashboardView: View {
                 }
                 .padding(.vertical, 8)
             }
-            .navigationTitle("Dream Catcher")
         }
     }
 
@@ -36,11 +35,11 @@ struct WatchDashboardView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Status")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.white.opacity(0.5))
                 Spacer()
                 Text(sessionManager.status)
-                    .font(.system(size: 11))
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.7))
             }
             .padding(.horizontal, 8)
@@ -49,18 +48,18 @@ struct WatchDashboardView: View {
                 ForEach(Array(sessionManager.lastReceivedWindows.enumerated()), id: \.offset) { i, w in
                     HStack {
                         Text("Window \(i + 1)")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.footnote.weight(.medium))
                             .foregroundColor(.white.opacity(0.6))
                         Spacer()
                         Text("\(w.start.formatted(date: .omitted, time: .shortened)) - \(w.end.formatted(date: .omitted, time: .shortened))")
-                            .font(.system(size: 10))
+                            .font(.caption2)
                             .foregroundColor(.white.opacity(0.4))
                     }
                     .padding(.horizontal, 8)
                 }
             } else {
                 Text("No windows yet")
-                    .font(.system(size: 11))
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.3))
                     .padding(.horizontal, 8)
             }
@@ -71,4 +70,3 @@ struct WatchDashboardView: View {
         .padding(.horizontal, 4)
     }
 }
-

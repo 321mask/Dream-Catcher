@@ -35,6 +35,7 @@ final class AppCoordinator {
 
     var sleepPhase: SleepPhase = .idle {
         didSet {
+            guard (sleepPhase != .idle) != (oldValue != .idle) else { return }
             PhoneWatchSync.shared.publishSleepSessionState(isActive: isSleepSessionOngoing)
         }
     }
@@ -196,6 +197,8 @@ final class AppCoordinator {
     /// End the sleep session and return the night log.
     @discardableResult
     func endSleepSession(source: SleepControlSource = .local) -> [REMCueScheduler.CueEvent] {
+        guard sleepPhase != .idle else { return [] }
+
         if source == .local {
             PhoneWatchSync.shared.sendStopSleepSession()
         }

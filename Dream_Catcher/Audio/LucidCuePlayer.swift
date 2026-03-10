@@ -83,6 +83,10 @@ final class LucidCuePlayer {
         }
     }
 
+    func stopCue() {
+        playerNode.stop()
+    }
+
     // MARK: - Background Keepalive
 
     /// Play a silent loop to prevent iOS from suspending the app overnight.

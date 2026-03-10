@@ -36,7 +36,6 @@ struct HapticsControlView: View {
             }
             .padding(.vertical, 8)
         }
-        .navigationTitle("Haptics Test")
     }
 
     // MARK: - Instant Haptic Section
@@ -44,17 +43,17 @@ struct HapticsControlView: View {
     private var instantHapticSection: some View {
         VStack(spacing: 8) {
             Text("Instant Haptic")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.headline)
                 .foregroundColor(.white.opacity(0.5))
 
             VStack(spacing: 8) {
                 HStack {
                     Text("Strength")
-                        .font(.system(size: 12))
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(currentLabel)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.footnote.weight(.medium))
                         .foregroundColor(.primary)
                 }
 
@@ -66,15 +65,15 @@ struct HapticsControlView: View {
 
                 HStack {
                     Text("Light")
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                     Spacer()
                     Text("Medium")
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                     Spacer()
                     Text("Strong")
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                 }
             }
@@ -83,15 +82,16 @@ struct HapticsControlView: View {
                 playSelected()
             } label: {
                 Label("Play", systemImage: "hand.tap")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 36)
             }
             .buttonStyle(.borderedProminent)
             .tint(.purple)
+            .accessibilityHint("Plays the selected haptic immediately")
 
             if let desc = lastPlayedDescription {
                 Text("Played: \(desc)")
-                    .font(.system(size: 11))
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.6))
             }
         }
@@ -103,7 +103,7 @@ struct HapticsControlView: View {
     private var scheduledCueSection: some View {
         VStack(spacing: 10) {
             Text("Scheduled Cue Test")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.headline)
                 .foregroundColor(.white.opacity(0.5))
 
             // Session status
@@ -112,7 +112,7 @@ struct HapticsControlView: View {
                     .fill(sleepSession.isLive ? Color.green : Color.gray.opacity(0.5))
                     .frame(width: 8, height: 8)
                 Text(sleepSession.isLive ? "Session active" : "No session")
-                    .font(.system(size: 11))
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.6))
                 Spacer()
             }
@@ -127,18 +127,19 @@ struct HapticsControlView: View {
                         sleepSession.isBusyStarting ? "Starting..." : "Start Session",
                         systemImage: "moon.fill"
                     )
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                     .frame(maxWidth: .infinity, minHeight: 34)
                 }
                 .buttonStyle(.bordered)
                 .tint(.indigo)
                 .disabled(sleepSession.isBusyStarting)
+                .accessibilityHint("Starts a workout session for scheduled cues")
             }
 
             // First cue delay picker
             VStack(spacing: 4) {
                 Text("First cue in")
-                    .font(.system(size: 11))
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.5))
 
                 Picker("Delay", selection: $selectedDelayIndex) {
@@ -153,26 +154,26 @@ struct HapticsControlView: View {
             // Cue count stepper
             HStack {
                 Text("Cues")
-                    .font(.system(size: 12))
+                    .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
                 Button {
                     if cueCount > 1 { cueCount -= 1 }
                 } label: {
                     Image(systemName: "minus.circle")
-                        .font(.system(size: 16))
+                        .font(.body)
                 }
                 .buttonStyle(.plain)
 
                 Text("\(cueCount)")
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.headline.monospacedDigit())
                     .frame(width: 24)
 
                 Button {
                     if cueCount < 10 { cueCount += 1 }
                 } label: {
                     Image(systemName: "plus.circle")
-                        .font(.system(size: 16))
+                        .font(.body)
                 }
                 .buttonStyle(.plain)
             }
@@ -183,23 +184,24 @@ struct HapticsControlView: View {
                 scheduleTestCues()
             } label: {
                 Label("Schedule Cues", systemImage: "clock.badge.checkmark")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 36)
             }
             .buttonStyle(.borderedProminent)
             .tint(.cyan)
+            .accessibilityHint("Schedules the selected test cues")
 
             // Status feedback
             if let status = scheduledStatus {
                 Text(status)
-                    .font(.system(size: 10))
+                    .font(.caption2)
                     .foregroundColor(.white.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 4)
             }
 
-            Text("Schedules haptic cues via WKInterfaceDevice during an extended runtime session. Start a session first.")
-                .font(.system(size: 10))
+            Text("Schedules watch haptic cues during a HealthKit workout session. The session ends automatically after the last cue.")
+                .font(.caption2)
                 .foregroundColor(.white.opacity(0.3))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 4)
@@ -250,9 +252,9 @@ struct HapticsControlView: View {
         scheduledStatus = "\(cueCount) cue\(cueCount == 1 ? "" : "s") scheduled: \(firstLabel)–\(lastLabel) from now"
 
         if sleepSession.isLive {
-            scheduledStatus! += "\nSession active — haptic delivery ready"
+            scheduledStatus! += "\nWorkout session active — haptic delivery ready"
         } else {
-            scheduledStatus! += "\nNo session — start one first"
+            scheduledStatus! += "\nNo workout session — start one first"
         }
     }
 }
