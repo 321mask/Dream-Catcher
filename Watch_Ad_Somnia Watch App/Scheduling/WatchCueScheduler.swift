@@ -1,10 +1,10 @@
 //  WatchCueScheduler.swift
 //  Watch_Dream_Catcher Watch App
 //
-//  Delivers haptic cues during an active HKWorkoutSession.
+//  Delivers haptic cues while the watch app is alive in the background.
 //
-//  Haptics are played via WKInterfaceDevice.play(), which works in the
-//  background during an active workout session.
+//  Haptics are played via WKInterfaceDevice.play(), which works while
+//  WatchSleepSession's AVAudioSession is active (audio background mode).
 //
 //  Flow:
 //    - Cue fire dates are stored in scheduledFireDates.

@@ -7,7 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3AA28EBC2F19834B000C0253 /* Watch_Dream_Catcher Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 3AA28EB22F19834A000C0253 /* Watch_Dream_Catcher Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3A9E15172FD1A6A000A2125D /* ambientSleep.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 3A9E15162FD1A6A000A2125D /* ambientSleep.m4a */; };
+		3AA28EBC2F19834B000C0253 /* Watch_Ad_Somnia Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 3AA28EB22F19834A000C0253 /* Watch_Ad_Somnia Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,7 +28,7 @@
 			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
 			dstSubfolderSpec = 16;
 			files = (
-				3AA28EBC2F19834B000C0253 /* Watch_Dream_Catcher Watch App.app in Embed Watch Content */,
+				3AA28EBC2F19834B000C0253 /* Watch_Ad_Somnia Watch App.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -35,37 +36,34 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3A315BCD2F17CFA000C6CBAF /* Dream_Catcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dream_Catcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		3AA28EB22F19834A000C0253 /* Watch_Dream_Catcher Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Watch_Dream_Catcher Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A315BCD2F17CFA000C6CBAF /* Ad Somnia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ad Somnia.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A9E15162FD1A6A000A2125D /* ambientSleep.m4a */ = {isa = PBXFileReference; lastKnownFileType = file; path = ambientSleep.m4a; sourceTree = "<group>"; };
+		3AA28EB22F19834A000C0253 /* Watch_Ad_Somnia Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Watch_Ad_Somnia Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAAA00012F000000000LOCAL /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		3AE1CF952F447484002C22BD /* Exceptions for "Dream_Catcher" folder in "Watch_Dream_Catcher Watch App" target */ = {
+		3A755B642FD1AFCF009F31F0 /* Exceptions for "Ad Somnia" folder in "Watch_Ad_Somnia Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Audio/GammaEntrainmentGenerator.swift,
 				Audio/LucidCue.swift,
-				Audio/LucidCueAudioGenerator.swift,
-				Audio/LucidCuePlayer.swift,
-				Audio/newVoice.mp3,
 			);
-			target = 3AA28EB12F19834A000C0253 /* Watch_Dream_Catcher Watch App */;
+			target = 3AA28EB12F19834A000C0253 /* Watch_Ad_Somnia Watch App */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		3A315BCF2F17CFA000C6CBAF /* Dream_Catcher */ = {
+		3A315BCF2F17CFA000C6CBAF /* Ad Somnia */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				3AE1CF952F447484002C22BD /* Exceptions for "Dream_Catcher" folder in "Watch_Dream_Catcher Watch App" target */,
+				3A755B642FD1AFCF009F31F0 /* Exceptions for "Ad Somnia" folder in "Watch_Ad_Somnia Watch App" target */,
 			);
-			path = Dream_Catcher;
+			path = "Ad Somnia";
 			sourceTree = "<group>";
 		};
-		3AA28EB32F19834A000C0253 /* Watch_Dream_Catcher Watch App */ = {
+		3AA28EB32F19834A000C0253 /* Watch_Ad_Somnia Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Watch_Dream_Catcher Watch App";
+			path = "Watch_Ad_Somnia Watch App";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -91,9 +89,10 @@
 		3A315BC42F17CFA000C6CBAF = {
 			isa = PBXGroup;
 			children = (
+				3A9E15162FD1A6A000A2125D /* ambientSleep.m4a */,
 				AAAA00012F000000000LOCAL /* Local.xcconfig */,
-				3A315BCF2F17CFA000C6CBAF /* Dream_Catcher */,
-				3AA28EB32F19834A000C0253 /* Watch_Dream_Catcher Watch App */,
+				3A315BCF2F17CFA000C6CBAF /* Ad Somnia */,
+				3AA28EB32F19834A000C0253 /* Watch_Ad_Somnia Watch App */,
 				3A315BCE2F17CFA000C6CBAF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,8 +100,8 @@
 		3A315BCE2F17CFA000C6CBAF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3A315BCD2F17CFA000C6CBAF /* Dream_Catcher.app */,
-				3AA28EB22F19834A000C0253 /* Watch_Dream_Catcher Watch App.app */,
+				3A315BCD2F17CFA000C6CBAF /* Ad Somnia.app */,
+				3AA28EB22F19834A000C0253 /* Watch_Ad_Somnia Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -110,9 +109,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3A315BCC2F17CFA000C6CBAF /* Dream_Catcher */ = {
+		3A315BCC2F17CFA000C6CBAF /* Ad Somnia */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3A315BDA2F17CFA100C6CBAF /* Build configuration list for PBXNativeTarget "Dream_Catcher" */;
+			buildConfigurationList = 3A315BDA2F17CFA100C6CBAF /* Build configuration list for PBXNativeTarget "Ad Somnia" */;
 			buildPhases = (
 				3A315BC92F17CFA000C6CBAF /* Sources */,
 				3A315BCA2F17CFA000C6CBAF /* Frameworks */,
@@ -125,18 +124,18 @@
 				3AA28EBB2F19834B000C0253 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				3A315BCF2F17CFA000C6CBAF /* Dream_Catcher */,
+				3A315BCF2F17CFA000C6CBAF /* Ad Somnia */,
 			);
-			name = Dream_Catcher;
+			name = "Ad Somnia";
 			packageProductDependencies = (
 			);
 			productName = Dream_Catcher;
-			productReference = 3A315BCD2F17CFA000C6CBAF /* Dream_Catcher.app */;
+			productReference = 3A315BCD2F17CFA000C6CBAF /* Ad Somnia.app */;
 			productType = "com.apple.product-type.application";
 		};
-		3AA28EB12F19834A000C0253 /* Watch_Dream_Catcher Watch App */ = {
+		3AA28EB12F19834A000C0253 /* Watch_Ad_Somnia Watch App */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3AA28EC02F19834B000C0253 /* Build configuration list for PBXNativeTarget "Watch_Dream_Catcher Watch App" */;
+			buildConfigurationList = 3AA28EC02F19834B000C0253 /* Build configuration list for PBXNativeTarget "Watch_Ad_Somnia Watch App" */;
 			buildPhases = (
 				3AA28EAE2F19834A000C0253 /* Sources */,
 				3AA28EAF2F19834A000C0253 /* Frameworks */,
@@ -147,13 +146,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				3AA28EB32F19834A000C0253 /* Watch_Dream_Catcher Watch App */,
+				3AA28EB32F19834A000C0253 /* Watch_Ad_Somnia Watch App */,
 			);
-			name = "Watch_Dream_Catcher Watch App";
+			name = "Watch_Ad_Somnia Watch App";
 			packageProductDependencies = (
 			);
 			productName = "Watch_Dream_Catcher Watch App";
-			productReference = 3AA28EB22F19834A000C0253 /* Watch_Dream_Catcher Watch App.app */;
+			productReference = 3AA28EB22F19834A000C0253 /* Watch_Ad_Somnia Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -174,7 +173,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3A315BC82F17CFA000C6CBAF /* Build configuration list for PBXProject "Dream_Catcher" */;
+			buildConfigurationList = 3A315BC82F17CFA000C6CBAF /* Build configuration list for PBXProject "Ad Somnia" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -188,8 +187,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3A315BCC2F17CFA000C6CBAF /* Dream_Catcher */,
-				3AA28EB12F19834A000C0253 /* Watch_Dream_Catcher Watch App */,
+				3A315BCC2F17CFA000C6CBAF /* Ad Somnia */,
+				3AA28EB12F19834A000C0253 /* Watch_Ad_Somnia Watch App */,
 			);
 		};
 /* End PBXProject section */
@@ -206,6 +205,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3A9E15172FD1A6A000A2125D /* ambientSleep.m4a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -231,7 +231,7 @@
 /* Begin PBXTargetDependency section */
 		3AA28EBB2F19834B000C0253 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3AA28EB12F19834A000C0253 /* Watch_Dream_Catcher Watch App */;
+			target = 3AA28EB12F19834A000C0253 /* Watch_Ad_Somnia Watch App */;
 			targetProxy = 3AA28EBA2F19834B000C0253 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -365,11 +365,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Dream_Catcher/Dream_Catcher.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Ad Somnia/Ad Somnia.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = TJNHB2R4K6;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F6KJ6KKPZT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Dream-Catcher-Info.plist";
@@ -388,8 +388,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.321mask.AdSomnia;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -411,11 +411,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Dream_Catcher/Dream_Catcher.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Ad Somnia/Ad Somnia.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = TJNHB2R4K6;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F6KJ6KKPZT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Dream-Catcher-Info.plist";
@@ -434,8 +434,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.321mask.AdSomnia;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -457,24 +457,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Watch_Dream_Catcher Watch App/Watch_Dream_Catcher Watch App.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Watch_Ad_Somnia Watch App/Watch_Ad Somnia Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = TJNHB2R4K6;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F6KJ6KKPZT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Ad Somnia";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Dream ​Catcher uses a workout session to deliver haptic cues during sleep.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Dream ​Catcher saves a mindfulness workout to track your sleep sessions.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.321mask.AdSomnia;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher.watchkitapp";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.321mask.AdSomnia.WatchApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -486,7 +484,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.6;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 				j = "";
 			};
 			name = Debug;
@@ -496,25 +494,23 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Watch_Dream_Catcher Watch App/Watch_Dream_Catcher Watch App.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Watch_Ad_Somnia Watch App/Watch_Ad Somnia Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = TJNHB2R4K6;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F6KJ6KKPZT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Watch-Dream-Catcher-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Ad Somnia";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Dream ​Catcher uses a workout session to deliver haptic cues during sleep.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Dream ​Catcher saves a mindfulness workout to track your sleep sessions.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.bestAppleDev.Dream-Catcher";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.321mask.AdSomnia;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.bestAppleDev.Dream-Catcher.watchkitapp";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.321mask.AdSomnia.WatchApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -526,7 +522,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.6;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 				j = "";
 			};
 			name = Release;
@@ -534,7 +530,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3A315BC82F17CFA000C6CBAF /* Build configuration list for PBXProject "Dream_Catcher" */ = {
+		3A315BC82F17CFA000C6CBAF /* Build configuration list for PBXProject "Ad Somnia" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3A315BD82F17CFA100C6CBAF /* Debug */,
@@ -543,7 +539,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3A315BDA2F17CFA100C6CBAF /* Build configuration list for PBXNativeTarget "Dream_Catcher" */ = {
+		3A315BDA2F17CFA100C6CBAF /* Build configuration list for PBXNativeTarget "Ad Somnia" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3A315BDB2F17CFA100C6CBAF /* Debug */,
@@ -552,7 +548,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3AA28EC02F19834B000C0253 /* Build configuration list for PBXNativeTarget "Watch_Dream_Catcher Watch App" */ = {
+		3AA28EC02F19834B000C0253 /* Build configuration list for PBXNativeTarget "Watch_Ad_Somnia Watch App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AA28EBE2F19834B000C0253 /* Debug */,

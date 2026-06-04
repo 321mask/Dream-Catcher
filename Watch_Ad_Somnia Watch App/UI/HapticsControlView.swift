@@ -133,7 +133,7 @@ struct HapticsControlView: View {
                 .buttonStyle(.bordered)
                 .tint(.indigo)
                 .disabled(sleepSession.isBusyStarting)
-                .accessibilityHint("Starts a workout session for scheduled cues")
+                .accessibilityHint("Starts a background audio session for scheduled cues")
             }
 
             // First cue delay picker
@@ -200,7 +200,7 @@ struct HapticsControlView: View {
                     .padding(.horizontal, 4)
             }
 
-            Text("Schedules watch haptic cues during a HealthKit workout session. The session ends automatically after the last cue.")
+            Text("Schedules watch haptic cues during a background audio session. The session ends automatically after the last cue.")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.3))
                 .multilineTextAlignment(.center)
@@ -252,9 +252,9 @@ struct HapticsControlView: View {
         scheduledStatus = "\(cueCount) cue\(cueCount == 1 ? "" : "s") scheduled: \(firstLabel)–\(lastLabel) from now"
 
         if sleepSession.isLive {
-            scheduledStatus! += "\nWorkout session active — haptic delivery ready"
+            scheduledStatus! += "\nBackground session active — haptic delivery ready"
         } else {
-            scheduledStatus! += "\nNo workout session — start one first"
+            scheduledStatus! += "\nNo background session — start one first"
         }
     }
 }

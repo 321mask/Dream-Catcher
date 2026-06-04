@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2600"
+   LastUpgradeVersion = "2650"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,24 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3AA28EB12F19834A000C0253"
-               BuildableName = "Watch_Dream_Catcher Watch App.app"
-               BlueprintName = "Watch_Dream_Catcher Watch App"
-               ReferencedContainer = "container:Dream_Catcher.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "3A315BCC2F17CFA000C6CBAF"
-               BuildableName = "Dream_Catcher.app"
-               BlueprintName = "Dream_Catcher"
-               ReferencedContainer = "container:Dream_Catcher.xcodeproj">
+               BuildableName = "Ad Somnia.app"
+               BlueprintName = "Ad Somnia"
+               ReferencedContainer = "container:Ad Somnia.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -53,15 +39,16 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
+      allowLocationSimulation = "YES"
+      queueDebuggingEnableBacktraceRecording = "Yes">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "3AA28EB12F19834A000C0253"
-            BuildableName = "Watch_Dream_Catcher Watch App.app"
-            BlueprintName = "Watch_Dream_Catcher Watch App"
-            ReferencedContainer = "container:Dream_Catcher.xcodeproj">
+            BlueprintIdentifier = "3A315BCC2F17CFA000C6CBAF"
+            BuildableName = "Ad Somnia.app"
+            BlueprintName = "Ad Somnia"
+            ReferencedContainer = "container:Ad Somnia.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -75,10 +62,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "3AA28EB12F19834A000C0253"
-            BuildableName = "Watch_Dream_Catcher Watch App.app"
-            BlueprintName = "Watch_Dream_Catcher Watch App"
-            ReferencedContainer = "container:Dream_Catcher.xcodeproj">
+            BlueprintIdentifier = "3A315BCC2F17CFA000C6CBAF"
+            BuildableName = "Ad Somnia.app"
+            BlueprintName = "Ad Somnia"
+            ReferencedContainer = "container:Ad Somnia.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
