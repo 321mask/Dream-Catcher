@@ -54,13 +54,11 @@ struct SettingsView: View {
                 }
             }
 
-            /*Section("Testing") {
+            Section("Testing") {
                 NavigationLink("Cue Testing") {
                     CueTestingView(coordinator: coordinator)
                 }
-
-
-            }*/
+            }
 
             Section("Help") {
                 Button {

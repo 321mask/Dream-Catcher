@@ -15,29 +15,38 @@ import SwiftUI
 struct WatchSleepSessionView: View {
 
     var sleepSession: WatchSleepSession
+    @State private var scheduler = WatchCueScheduler.shared
 
     @State private var showingConfirmStop = false
     @State private var pulseAnimation = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            statusIndicator
-            actionButton
+        ScrollView {
+            VStack(spacing: 12) {
+                statusIndicator
 
-            if sleepSession.isLive {
-                sessionInfo
-            }
+                if case .error(let message) = sleepSession.state {
+                    errorBox(message: message)
+                }
 
-            // Haptics tester navigation
-            NavigationLink {
-                HapticsControlView()
-            } label: {
-                Label("Haptics Test", systemImage: "waveform.path")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 36)
+                actionButton
+
+                if sleepSession.isLive {
+                    sessionInfo
+                    diagnosticsBox
+                }
+
+                // Haptics tester navigation
+                NavigationLink {
+                    HapticsControlView()
+                } label: {
+                    Label("Haptics Test", systemImage: "waveform.path")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .buttonStyle(.bordered)
+                .tint(.purple.opacity(0.8))
             }
-            .buttonStyle(.bordered)
-            .tint(.purple.opacity(0.8))
         }
         .onAppear {
             sleepSession.autoStartIfAppropriate()
@@ -131,6 +140,72 @@ struct WatchSleepSessionView: View {
 
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Diagnostics
+
+    /// Surfaces information useful for verifying the session truly stayed
+    /// alive overnight: elapsed time, scheduled cue count, delivered count.
+    private var diagnosticsBox: some View {
+        VStack(spacing: 4) {
+            diagnosticsRow(
+                label: "Running for",
+                value: formattedElapsed(sleepSession.sessionStartTime)
+            )
+            diagnosticsRow(
+                label: "Cues delivered",
+                value: "\(scheduler.cuesDelivered) / \(scheduler.scheduledFireDates.count)"
+            )
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func diagnosticsRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.5))
+            Spacer()
+            Text(value)
+                .font(.caption2.monospacedDigit())
+                .foregroundColor(.white.opacity(0.8))
+        }
+    }
+
+    private func formattedElapsed(_ start: Date?) -> String {
+        guard let start else { return "—" }
+        let seconds = Int(Date().timeIntervalSince(start))
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        let s = seconds % 60
+        if h > 0 {
+            return String(format: "%dh %02dm", h, m)
+        }
+        return String(format: "%dm %02ds", m, s)
+    }
+
+    // MARK: - Error Box
+
+    private func errorBox(message: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                Text("Session failed")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.red)
+            }
+            Text(message)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Helpers

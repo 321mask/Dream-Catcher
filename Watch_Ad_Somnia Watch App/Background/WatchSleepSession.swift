@@ -165,16 +165,54 @@ final class WatchSleepSession: NSObject {
 
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true, options: [])
+            // .longForm route sharing policy is required for background
+            // audio on watchOS — the system routes playback to a Bluetooth
+            // audio device (AirPods, etc) and keeps the app alive while
+            // audio is playing.
+            try session.setCategory(
+                .playback,
+                mode: .default,
+                policy: .longFormAudio,
+                options: []
+            )
         } catch {
             isStarting = false
-            state = .error("Audio session failed: \(error.localizedDescription)")
+            state = .error("Audio category failed: \(error.localizedDescription)")
             sleepSessionRequested = false
             WatchSessionManager.shared.publishSleepSessionState(isActive: false)
             return
         }
 
+        // watchOS requires asynchronous activation for long-form playback.
+        // If no Bluetooth route is connected, the system presents a route
+        // picker; cancelling it (or having no route available) fails the
+        // activation.
+        session.activate(options: []) { [weak self] success, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.sleepSessionRequested else {
+                    // User stopped the session before activation completed.
+                    try? AVAudioSession.sharedInstance().setActive(
+                        false,
+                        options: [.notifyOthersOnDeactivation]
+                    )
+                    return
+                }
+                if success {
+                    self.beginAudioPlayback(url: url)
+                } else {
+                    self.isStarting = false
+                    let message = error?.localizedDescription
+                        ?? "Connect AirPods or another Bluetooth audio device, then try again."
+                    self.state = .error(message)
+                    self.sleepSessionRequested = false
+                    WatchSessionManager.shared.publishSleepSessionState(isActive: false)
+                }
+            }
+        }
+    }
+
+    private func beginAudioPlayback(url: URL) {
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.numberOfLoops = -1
@@ -199,7 +237,10 @@ final class WatchSleepSession: NSObject {
             isStarting = false
             state = .error(error.localizedDescription)
             sleepSessionRequested = false
-            try? session.setActive(false, options: [.notifyOthersOnDeactivation])
+            try? AVAudioSession.sharedInstance().setActive(
+                false,
+                options: [.notifyOthersOnDeactivation]
+            )
             WatchSessionManager.shared.publishSleepSessionState(isActive: false)
         }
     }

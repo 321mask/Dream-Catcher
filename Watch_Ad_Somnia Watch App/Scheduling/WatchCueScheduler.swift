@@ -109,7 +109,6 @@ final class WatchCueScheduler {
         let upcomingFireDates = fireDates.filter { $0.timeIntervalSinceNow > 0 }
 
         guard !upcomingFireDates.isEmpty else {
-            scheduleAutoStop(after: nil, expectedFireDates: fireDates)
             return
         }
 
