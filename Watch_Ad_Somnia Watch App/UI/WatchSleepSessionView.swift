@@ -156,10 +156,23 @@ struct WatchSleepSessionView: View {
                 label: "Cues delivered",
                 value: "\(scheduler.cuesDelivered) / \(scheduler.scheduledFireDates.count)"
             )
+            diagnosticsRow(
+                label: "Last cue",
+                value: formattedLastCue(scheduler.lastDeliveredAt)
+            )
         }
         .padding(8)
         .frame(maxWidth: .infinity)
         .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func formattedLastCue(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        let ago = Int(Date().timeIntervalSince(date))
+        if ago < 60 { return "\(ago)s ago" }
+        let m = ago / 60
+        if m < 60 { return "\(m)m ago" }
+        return "\(m / 60)h \(m % 60)m ago"
     }
 
     private func diagnosticsRow(label: String, value: String) -> some View {

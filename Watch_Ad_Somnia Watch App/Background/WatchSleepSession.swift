@@ -83,11 +83,67 @@ final class WatchSleepSession: NSObject {
     private var isStarting = false
     private var isStopping = false
 
+    private override init() {
+        super.init()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
     private func ensureMain(_ block: @escaping () -> Void) {
         if Thread.isMainThread {
             block()
         } else {
             DispatchQueue.main.async { block() }
+        }
+    }
+
+    // MARK: - Audio Interruption Recovery
+
+    /// AVAudioSession interrupts on phone calls, Siri, alarms, etc. The system
+    /// pauses our player automatically; the keepalive dies with it unless we
+    /// reactivate and resume when the interruption ends.
+    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let info = notification.userInfo,
+              let rawType = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+
+        switch type {
+        case .began:
+            // Player will be paused by the system. Nothing to do but wait.
+            break
+        case .ended:
+            ensureMain {
+                guard self.sleepSessionRequested else { return }
+                let shouldResume: Bool = {
+                    guard let raw = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return true }
+                    return AVAudioSession.InterruptionOptions(rawValue: raw).contains(.shouldResume)
+                }()
+                guard shouldResume else { return }
+                self.recoverAfterInterruption()
+            }
+        @unknown default:
+            break
+        }
+    }
+
+    private func recoverAfterInterruption() {
+        let session = AVAudioSession.sharedInstance()
+        session.activate(options: []) { [weak self] success, _ in
+            DispatchQueue.main.async {
+                guard let self, self.sleepSessionRequested else { return }
+                guard success, let player = self.audioPlayer, player.play() else {
+                    // Recovery failed — surface state but don't tear down so
+                    // the user knows what happened in the morning.
+                    self.state = .error("Audio interrupted; could not resume.")
+                    WatchCueScheduler.shared.hasLiveSession = false
+                    return
+                }
+                self.state = .active
+            }
         }
     }
 

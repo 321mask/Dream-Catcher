@@ -6,12 +6,11 @@
 //  Haptics are played via WKInterfaceDevice.play(), which works while
 //  WatchSleepSession's AVAudioSession is active (audio background mode).
 //
-//  Flow:
-//    - Cue fire dates are stored in scheduledFireDates.
-//    - When hasLiveSession becomes true, DispatchWorkItems are scheduled
-//      on the main queue for each fire date.
-//    - Each DispatchWorkItem calls deliverCue() which plays a three-tap
-//      ascending haptic pattern via WKInterfaceDevice.
+//  Design: a single repeating poll Timer asks every few seconds whether
+//  any scheduled cue is due. This is resilient to state churn, audio
+//  interruptions, and the watchOS scheduler deferring long one-shot
+//  timers — much more reliable than per-cue DispatchWorkItems for
+//  delays measured in tens of minutes or hours.
 
 import Foundation
 import WatchKit
@@ -28,17 +27,17 @@ final class WatchCueScheduler {
         didSet {
             if hasLiveSession && !oldValue {
                 cuesDelivered = 0
-                if !scheduledFireDates.isEmpty {
-                    startDirectDelivery(fireDates: scheduledFireDates)
-                }
+                lastDeliveredAt = nil
+                firedDates.removeAll()
+                startPolling()
             } else if !hasLiveSession && oldValue {
-                stopDirectDelivery()
+                stopPolling()
             }
         }
     }
 
-    private(set) var isDeliveringDirectly = false
     private(set) var cuesDelivered: Int = 0
+    private(set) var lastDeliveredAt: Date?
 
     // MARK: - Pause State
 
@@ -48,8 +47,16 @@ final class WatchCueScheduler {
     // MARK: - Scheduled Cues
 
     private(set) var scheduledFireDates: [Date] = []
-    private var directDispatchItems: [DispatchWorkItem] = []
-    private var autoStopWorkItem: DispatchWorkItem?
+    private var firedDates: Set<Date> = []
+
+    // MARK: - Polling
+
+    private var pollTimer: Timer?
+    private let pollInterval: TimeInterval = 5.0
+    /// How late a cue can fire after its scheduled time before being skipped.
+    /// Without this, a session that wakes up an hour late would dump every
+    /// missed cue at once.
+    private let cueExpiryWindow: TimeInterval = 60.0
 
     // MARK: - Init
 
@@ -72,9 +79,10 @@ final class WatchCueScheduler {
         }
         dates.sort()
         scheduledFireDates = dates
+        firedDates.removeAll()
 
         if hasLiveSession {
-            startDirectDelivery(fireDates: dates)
+            startPolling()
         }
     }
 
@@ -94,59 +102,55 @@ final class WatchCueScheduler {
         let now = Date()
         let dates = sanitized.map { now.addingTimeInterval($0) }
         scheduledFireDates = dates
+        firedDates.removeAll()
 
         if hasLiveSession {
-            startDirectDelivery(fireDates: dates)
+            startPolling()
         }
     }
 
-    // MARK: - Direct Delivery
+    // MARK: - Polling
 
-    private func startDirectDelivery(fireDates: [Date]) {
-        stopDirectDelivery()
-        isDeliveringDirectly = true
-
-        let upcomingFireDates = fireDates.filter { $0.timeIntervalSinceNow > 0 }
-
-        guard !upcomingFireDates.isEmpty else {
-            return
+    private func startPolling() {
+        stopPolling()
+        let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
+            self?.poll()
         }
+        // Let watchOS coalesce timer fires for better battery behavior.
+        timer.tolerance = pollInterval / 2
+        RunLoop.main.add(timer, forMode: .common)
+        pollTimer = timer
+        // Fire once immediately for any cue that's already due.
+        poll()
+    }
 
-        for date in upcomingFireDates {
-            let delay = date.timeIntervalSinceNow
-            guard delay > 0 else { continue }
+    private func stopPolling() {
+        pollTimer?.invalidate()
+        pollTimer = nil
+    }
 
-            let item = DispatchWorkItem { [weak self] in
-                guard let self, self.isDeliveringDirectly, !self.isPaused else { return }
-                self.deliverCue()
+    private func poll() {
+        guard hasLiveSession else { return }
+        let now = Date()
+
+        for date in scheduledFireDates {
+            guard !firedDates.contains(date) else { continue }
+            let delta = now.timeIntervalSince(date)
+            if delta < 0 { continue }              // not yet due
+            if delta > cueExpiryWindow {           // missed window
+                firedDates.insert(date)
+                continue
             }
-            directDispatchItems.append(item)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+            firedDates.insert(date)
+            guard !isPaused else { continue }
+            deliverCue()
         }
 
-        scheduleAutoStop(after: upcomingFireDates.last, expectedFireDates: fireDates)
-    }
-
-    private func stopDirectDelivery() {
-        isDeliveringDirectly = false
-        for item in directDispatchItems { item.cancel() }
-        directDispatchItems.removeAll()
-        autoStopWorkItem?.cancel()
-        autoStopWorkItem = nil
-    }
-
-    private func scheduleAutoStop(after lastFireDate: Date?, expectedFireDates: [Date]) {
-        autoStopWorkItem?.cancel()
-
-        let stopDelay = max((lastFireDate?.timeIntervalSinceNow ?? 0) + 1.2, 0)
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            guard self.hasLiveSession, self.scheduledFireDates == expectedFireDates else { return }
+        // Auto-stop: all cues fired and the last fire was over a minute ago.
+        let hasUpcoming = scheduledFireDates.contains(where: { now < $0 })
+        if !hasUpcoming, let last = lastDeliveredAt, now.timeIntervalSince(last) > 60 {
             WatchSleepSession.shared.stop(source: .internal)
         }
-
-        autoStopWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + stopDelay, execute: work)
     }
 
     // MARK: - Cue Delivery via WKInterfaceDevice
@@ -184,6 +188,7 @@ final class WatchCueScheduler {
         }
 
         cuesDelivered += 1
+        lastDeliveredAt = Date()
         WatchSessionManager.shared.notifyCueDeliveredToPhone()
     }
 
@@ -207,9 +212,11 @@ final class WatchCueScheduler {
     // MARK: - Cleanup
 
     func removeAllScheduledCues() {
-        stopDirectDelivery()
+        stopPolling()
         scheduledFireDates.removeAll()
+        firedDates.removeAll()
         cuesDelivered = 0
+        lastDeliveredAt = nil
         isPaused = false
         pauseResumeWork?.cancel()
     }
