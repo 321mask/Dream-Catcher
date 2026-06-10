@@ -160,10 +160,28 @@ struct WatchSleepSessionView: View {
                 label: "Last cue",
                 value: formattedLastCue(scheduler.lastDeliveredAt)
             )
+            diagnosticsRow(
+                label: "Last poll",
+                value: formattedLastCue(scheduler.lastPollAt)
+            )
+            diagnosticsRow(
+                label: "Longest gap",
+                value: formattedGap(scheduler.longestPollGap)
+            )
         }
         .padding(8)
         .frame(maxWidth: .infinity)
         .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Healthy sessions poll every ~5s; a gap of minutes or hours means the
+    /// app was suspended and the audio keepalive failed for that stretch.
+    private func formattedGap(_ gap: TimeInterval) -> String {
+        guard gap > 0 else { return "—" }
+        let s = Int(gap)
+        if s < 60 { return "\(s)s" }
+        if s < 3600 { return "\(s / 60)m \(s % 60)s" }
+        return "\(s / 3600)h \((s % 3600) / 60)m"
     }
 
     private func formattedLastCue(_ date: Date?) -> String {

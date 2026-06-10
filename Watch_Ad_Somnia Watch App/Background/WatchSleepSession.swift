@@ -3,9 +3,15 @@
 //  Watch_Dream_Catcher Watch App
 //
 //  Keeps the watch app running through the night via the `audio` background
-//  mode. A looping low-volume ambient sleep sound is played through
-//  AVAudioPlayer; while that audio session is active, the app stays alive
-//  and WatchCueScheduler can deliver haptic cues via WKInterfaceDevice.
+//  mode. A looping low-volume ambient sleep sound is rendered in-process by
+//  AVAudioEngine; while the engine is rendering, watchOS keeps the process
+//  scheduled, so WatchCueScheduler's poll timer keeps firing and haptic cues
+//  can be delivered via WKInterfaceDevice.
+//
+//  AVAudioPlayer is deliberately NOT used here: under the long-form audio
+//  policy the system renders AVAudioPlayer content out of process and may
+//  suspend the app — the sound keeps playing but timers and haptics stop.
+//  In-process rendering is what actually keeps the app alive overnight.
 //
 
 import AVFoundation
@@ -77,11 +83,18 @@ final class WatchSleepSession: NSObject {
         isStarting
     }
 
-    private var audioPlayer: AVAudioPlayer?
+    private var audioEngine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
+    /// Invalidates stale scheduleFile completion handlers after a stop or
+    /// restart so they can't double-schedule loop passes.
+    private var loopGeneration = 0
+    /// Number of file passes currently queued on the player node.
+    private var pendingLoopPasses = 0
+    private var isRecovering = false
+
     private var manuallyStarted = false
     private var sleepSessionRequested = false
     private var isStarting = false
-    private var isStopping = false
 
     private override init() {
         super.init()
@@ -90,6 +103,15 @@ final class WatchSleepSession: NSObject {
             selector: #selector(handleAudioSessionInterruption(_:)),
             name: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance()
+        )
+        // Fires when the output route changes (e.g. AirPods battery dies and
+        // playback falls back to the watch speaker). The engine stops itself
+        // when this happens and must be restarted.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleEngineConfigurationChange(_:)),
+            name: .AVAudioEngineConfigurationChange,
+            object: nil
         )
     }
 
@@ -101,11 +123,11 @@ final class WatchSleepSession: NSObject {
         }
     }
 
-    // MARK: - Audio Interruption Recovery
+    // MARK: - Interruption / Route Change Recovery
 
     /// AVAudioSession interrupts on phone calls, Siri, alarms, etc. The system
-    /// pauses our player automatically; the keepalive dies with it unless we
-    /// reactivate and resume when the interruption ends.
+    /// stops our engine; restart it when the interruption ends. If recovery
+    /// fails here, the WatchCueScheduler poll watchdog keeps retrying.
     @objc private func handleAudioSessionInterruption(_ notification: Notification) {
         guard let info = notification.userInfo,
               let rawType = info[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -113,36 +135,67 @@ final class WatchSleepSession: NSObject {
 
         switch type {
         case .began:
-            // Player will be paused by the system. Nothing to do but wait.
             break
         case .ended:
             ensureMain {
-                guard self.sleepSessionRequested else { return }
-                let shouldResume: Bool = {
-                    guard let raw = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return true }
-                    return AVAudioSession.InterruptionOptions(rawValue: raw).contains(.shouldResume)
-                }()
-                guard shouldResume else { return }
-                self.recoverAfterInterruption()
+                self.recoverPlaybackIfNeeded()
             }
         @unknown default:
             break
         }
     }
 
-    private func recoverAfterInterruption() {
-        let session = AVAudioSession.sharedInstance()
-        session.activate(options: []) { [weak self] success, _ in
+    @objc private func handleEngineConfigurationChange(_ notification: Notification) {
+        ensureMain {
+            guard let engine = self.audioEngine,
+                  (notification.object as? AVAudioEngine) === engine else { return }
+            self.recoverPlaybackIfNeeded()
+        }
+    }
+
+    /// Watchdog entry point, called from WatchCueScheduler's 5s poll while a
+    /// session is live. Cheap when healthy; restarts the engine after
+    /// interruptions, route changes, or a drained loop queue.
+    func ensureAudioAlive() {
+        ensureMain {
+            self.recoverPlaybackIfNeeded()
+        }
+    }
+
+    private func recoverPlaybackIfNeeded() {
+        guard sleepSessionRequested, !isRecovering, !isStarting else { return }
+        guard let engine = audioEngine, let node = playerNode else { return }
+        if engine.isRunning && pendingLoopPasses > 0 {
+            if state != .active { state = .active }
+            return
+        }
+
+        isRecovering = true
+        AVAudioSession.sharedInstance().activate(options: []) { [weak self] success, error in
             DispatchQueue.main.async {
-                guard let self, self.sleepSessionRequested else { return }
-                guard success, let player = self.audioPlayer, player.play() else {
-                    // Recovery failed — surface state but don't tear down so
-                    // the user knows what happened in the morning.
-                    self.state = .error("Audio interrupted; could not resume.")
-                    WatchCueScheduler.shared.hasLiveSession = false
+                guard let self else { return }
+                self.isRecovering = false
+                guard self.sleepSessionRequested else { return }
+                guard success else {
+                    // Keep the session requested — the next poll retries.
+                    self.state = .error(error?.localizedDescription ?? "Audio session lost; retrying…")
                     return
                 }
-                self.state = .active
+                do {
+                    if !engine.isRunning {
+                        engine.prepare()
+                        try engine.start()
+                    }
+                    self.loopGeneration += 1
+                    self.pendingLoopPasses = 0
+                    node.stop()
+                    self.scheduleLoopPasses(2)
+                    node.play()
+                    node.volume = Self.preferredAmbientVolume()
+                    self.state = .active
+                } catch {
+                    self.state = .error("Audio restart failed: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -185,13 +238,6 @@ final class WatchSleepSession: NSObject {
             self.sleepSessionRequested = false
             self.manuallyStarted = false
             WatchSessionManager.shared.publishSleepSessionState(isActive: false)
-
-            guard self.audioPlayer != nil else {
-                self.finishStopped()
-                return
-            }
-
-            self.isStopping = true
             self.finishStopped()
         }
     }
@@ -201,13 +247,13 @@ final class WatchSleepSession: NSObject {
     func setAmbientVolume(_ value: Float) {
         let clamped = max(0.0, min(1.0, value))
         UserDefaults.standard.set(Double(clamped), forKey: Self.ambientVolumeDefaultsKey)
-        audioPlayer?.volume = clamped
+        playerNode?.volume = clamped
     }
 
     // MARK: - Audio Session
 
     private func startAudioSessionIfNeeded() {
-        guard audioPlayer == nil else { return }
+        guard audioEngine == nil else { return }
 
         guard let url = Self.ambientAudioURL() else {
             state = .error("Missing ambient audio asset")
@@ -270,26 +316,31 @@ final class WatchSleepSession: NSObject {
 
     private func beginAudioPlayback(url: URL) {
         do {
-            let player = try AVAudioPlayer(contentsOf: url)
-            player.numberOfLoops = -1
-            player.volume = Self.preferredAmbientVolume()
-            player.delegate = self
-            player.prepareToPlay()
+            let file = try AVAudioFile(forReading: url)
+            let engine = AVAudioEngine()
+            let node = AVAudioPlayerNode()
+            engine.attach(node)
+            engine.connect(node, to: engine.mainMixerNode, format: file.processingFormat)
+            engine.prepare()
+            try engine.start()
 
-            guard player.play() else {
-                throw NSError(
-                    domain: "WatchSleepSession",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "AVAudioPlayer refused to play"]
-                )
-            }
+            audioEngine = engine
+            playerNode = node
+            node.volume = Self.preferredAmbientVolume()
 
-            audioPlayer = player
+            loopGeneration += 1
+            pendingLoopPasses = 0
+            scheduleLoopPasses(2)
+            node.play()
+
             isStarting = false
             sessionStartTime = sessionStartTime ?? Date()
             state = .active
             WatchCueScheduler.shared.hasLiveSession = true
         } catch {
+            audioEngine?.stop()
+            audioEngine = nil
+            playerNode = nil
             isStarting = false
             state = .error(error.localizedDescription)
             sleepSessionRequested = false
@@ -301,10 +352,35 @@ final class WatchSleepSession: NSObject {
         }
     }
 
+    /// Keeps the ambient loop queued ahead on the player node. Each pass
+    /// opens its own AVAudioFile — re-scheduling a single instance corrupts
+    /// its read position while a previous pass is still draining. Two passes
+    /// stay queued so playback survives a delayed completion callback; if the
+    /// queue drains anyway, the ensureAudioAlive watchdog refills it.
+    private func scheduleLoopPasses(_ count: Int) {
+        guard let node = playerNode, let url = Self.ambientAudioURL() else { return }
+        let generation = loopGeneration
+        for _ in 0..<count {
+            guard let file = try? AVAudioFile(forReading: url) else { continue }
+            pendingLoopPasses += 1
+            node.scheduleFile(file, at: nil) { [weak self] in
+                DispatchQueue.main.async {
+                    guard let self, generation == self.loopGeneration else { return }
+                    self.pendingLoopPasses -= 1
+                    guard self.sleepSessionRequested else { return }
+                    self.scheduleLoopPasses(1)
+                }
+            }
+        }
+    }
+
     private func finishStopped() {
-        audioPlayer?.stop()
-        audioPlayer?.delegate = nil
-        audioPlayer = nil
+        loopGeneration += 1
+        pendingLoopPasses = 0
+        playerNode?.stop()
+        audioEngine?.stop()
+        playerNode = nil
+        audioEngine = nil
 
         try? AVAudioSession.sharedInstance().setActive(
             false,
@@ -312,7 +388,7 @@ final class WatchSleepSession: NSObject {
         )
 
         isStarting = false
-        isStopping = false
+        isRecovering = false
         state = .inactive
         sessionStartTime = nil
         WatchCueScheduler.shared.hasLiveSession = false
@@ -334,45 +410,5 @@ final class WatchSleepSession: NSObject {
         let stored = UserDefaults.standard.object(forKey: ambientVolumeDefaultsKey) as? Double
         guard let stored else { return defaultAmbientVolume }
         return max(0.0, min(1.0, Float(stored)))
-    }
-}
-
-// MARK: - AVAudioPlayerDelegate
-
-extension WatchSleepSession: AVAudioPlayerDelegate {
-
-    nonisolated func audioPlayerDidFinishPlaying(
-        _ player: AVAudioPlayer,
-        successfully flag: Bool
-    ) {
-        // We loop forever (numberOfLoops = -1), so reaching here means the
-        // session was interrupted or the file ended unexpectedly. Try to
-        // restart playback if we still want the session alive.
-        let playerID = ObjectIdentifier(player)
-        let errorMessage = "Ambient audio stopped"
-        DispatchQueue.main.async {
-            guard let current = self.audioPlayer,
-                  ObjectIdentifier(current) == playerID,
-                  self.sleepSessionRequested else { return }
-            if !current.play() {
-                self.state = .error(errorMessage)
-                self.finishStopped()
-            }
-        }
-    }
-
-    nonisolated func audioPlayerDecodeErrorDidOccur(
-        _ player: AVAudioPlayer,
-        error: (any Error)?
-    ) {
-        let playerID = ObjectIdentifier(player)
-        let message = error?.localizedDescription ?? "Audio decode error"
-        DispatchQueue.main.async {
-            guard let current = self.audioPlayer,
-                  ObjectIdentifier(current) == playerID else { return }
-            self.state = .error(message)
-            self.sleepSessionRequested = false
-            self.finishStopped()
-        }
     }
 }

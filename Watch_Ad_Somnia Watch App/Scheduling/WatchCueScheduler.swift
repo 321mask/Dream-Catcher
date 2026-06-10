@@ -28,6 +28,8 @@ final class WatchCueScheduler {
             if hasLiveSession && !oldValue {
                 cuesDelivered = 0
                 lastDeliveredAt = nil
+                lastPollAt = nil
+                longestPollGap = 0
                 firedDates.removeAll()
                 startPolling()
             } else if !hasLiveSession && oldValue {
@@ -38,6 +40,15 @@ final class WatchCueScheduler {
 
     private(set) var cuesDelivered: Int = 0
     private(set) var lastDeliveredAt: Date?
+
+    // MARK: - Poll Diagnostics
+
+    /// When the poll last ran. If this lags far behind "now" in the morning,
+    /// the app was suspended overnight and the keepalive failed.
+    private(set) var lastPollAt: Date?
+    /// Longest observed gap between two consecutive polls this session.
+    /// Healthy sessions stay under ~10s (5s interval + tolerance).
+    private(set) var longestPollGap: TimeInterval = 0
 
     // MARK: - Pause State
 
@@ -53,10 +64,12 @@ final class WatchCueScheduler {
 
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 5.0
-    /// How late a cue can fire after its scheduled time before being skipped.
-    /// Without this, a session that wakes up an hour late would dump every
-    /// missed cue at once.
-    private let cueExpiryWindow: TimeInterval = 60.0
+    /// How late a cue can still fire after its scheduled time. For a sleeping
+    /// user a cue a few minutes late is far better than a skipped one, so
+    /// this is generous; only cues staler than this are dropped. Burst
+    /// protection comes from delivering at most one cue per poll, not from
+    /// a tight expiry.
+    private let cueExpiryWindow: TimeInterval = 10 * 60
 
     // MARK: - Init
 
@@ -133,23 +146,33 @@ final class WatchCueScheduler {
         guard hasLiveSession else { return }
         let now = Date()
 
+        if let last = lastPollAt {
+            let gap = now.timeIntervalSince(last)
+            if gap > longestPollGap { longestPollGap = gap }
+        }
+        lastPollAt = now
+
+        // The poll doubles as a watchdog: restart the audio engine after
+        // interruptions, route changes, or a drained loop queue.
+        WatchSleepSession.shared.ensureAudioAlive()
+
+        var hasDueCue = false
         for date in scheduledFireDates {
             guard !firedDates.contains(date) else { continue }
             let delta = now.timeIntervalSince(date)
             if delta < 0 { continue }              // not yet due
-            if delta > cueExpiryWindow {           // missed window
-                firedDates.insert(date)
-                continue
-            }
             firedDates.insert(date)
-            guard !isPaused else { continue }
-            deliverCue()
+            if delta <= cueExpiryWindow {
+                hasDueCue = true
+            }
         }
 
-        // Auto-stop: all cues fired and the last fire was over a minute ago.
-        let hasUpcoming = scheduledFireDates.contains(where: { now < $0 })
-        if !hasUpcoming, let last = lastDeliveredAt, now.timeIntervalSince(last) > 60 {
-            WatchSleepSession.shared.stop(source: .internal)
+        // Deliver at most one cue per poll so a late wake-up with several
+        // overdue cues can't stack haptics and startle the sleeper. The
+        // session intentionally never stops itself — it runs until the user,
+        // the phone, or Sleep Focus ends it.
+        if hasDueCue, !isPaused {
+            deliverCue()
         }
     }
 
@@ -217,6 +240,8 @@ final class WatchCueScheduler {
         firedDates.removeAll()
         cuesDelivered = 0
         lastDeliveredAt = nil
+        lastPollAt = nil
+        longestPollGap = 0
         isPaused = false
         pauseResumeWork?.cancel()
     }
